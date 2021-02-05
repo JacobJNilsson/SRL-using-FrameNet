@@ -51,3 +51,36 @@ def parse(datafile="swefn.xml"):
         + str(totalExamples / framesWithExample)
     )
     return root
+
+
+def create_data(datafile="swefn-ex.xml"):
+    word_file = open("word", "w", encoding="utf8")
+    lemma_file = open("lemma", "w", encoding="utf8")
+    pos_file = open("pos", "w", encoding="utf8")
+    deprel_file = open("deprel", "w", encoding="utf8")
+    dephead_file = open("dephead", "w", encoding="utf8")
+
+    tree = ET.parse(datafile)
+    root = tree.getroot()
+
+    for frame in root:
+        for example in frame:
+            words = example.iter(tag="w")
+            for word in words:
+                word_file.write(word.text + "\n")
+                lemma_file.write(word.get("lemma") + "\n")
+                pos_file.write(word.get("pos") + "\n")
+                deprel_file.write(word.get("deprel") + "\n")
+                dephead_file.write(str(word.get("dephead", 0)) + "\n")
+
+            word_file.write("\n")
+            lemma_file.write("\n")
+            pos_file.write("\n")
+            deprel_file.write("\n")
+            dephead_file.write("\n")
+
+    word_file.close()
+    lemma_file.close()
+    pos_file.close()
+    deprel_file.close()
+    dephead_file.close()

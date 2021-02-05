@@ -1,8 +1,9 @@
-from data_parser import parse
+from data_parser import parse, create_data
 
 
 def main():
-    parse()
+    # parse()
+    create_data()
 
 
 if __name__ == "__main__":
