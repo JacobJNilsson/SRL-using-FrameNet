@@ -123,9 +123,9 @@ def create_data(datafile_1="swefn-ex.xml", datafile_2="swefn.xml"):
 
 
 def parse_syn_tree(datafile="swefn-ex.xml"):
+    frames = []
     syn_tree = ET.parse(datafile)
     syn_root = syn_tree.getroot()
-    frames = []
 
     # Each frame
     for text in syn_root:
@@ -136,6 +136,7 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
             subtrees = {}
             words = example.iter(tag="w")
             root = None
+
             # Each word in the sentance
             # Make a treenode for each word
             for word in words:
@@ -182,32 +183,44 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
 
 
 def parse_sem(datafile="swefn.xml"):
+    frames = []
     tree = ET.parse(datafile)
     root = tree.getroot()
     lexicon = root.find("Lexicon")
     lexicalEntries = lexicon.findall("LexicalEntry")
 
     for lexicalEntry in lexicalEntries:
-        frame = lexicalEntry.find("Sense")
-        name = ""
+        sense = lexicalEntry.find("Sense")
+        frameName = ""
         core_elements = []
-        features = frame.findall("feat")
+        features = sense.findall("feat")
         for feature in features:
-            if feature.get("att") == "BNFID":
-                name = feature.get("val")
+            # get frame name from feat with attribute BNFID
+            if feature.get("att") == "BFNID":
+                frameName = feature.get("val")
             elif feature.get("att") == "coreElement":
                 core_elements.append(feature.get("val"))
 
-        DS.Frame(name, core_elements)  # get frame name from feat with attribute BNFID
-
-        # for child in frame:
-        #     if child.attrib["att"] == "BFNID":
-        #         DS.Frame(frame.text)
-        #     elif (
-        #         child.tag
-        #         == "{http://spraakbanken.gu.se/eng/research/infrastructure/karp/karp}example"
-        #     ):
-        #         # children.append(child)
-        #     elif child.attrib["att"] == "LU":
-
-        #     elif child.attrib["att"] == "coreElement":
+        frame = DS.Frame(frameName, core_elements)  # Initiate Frame
+        examples = sense.findall(
+            "{http://spraakbanken.gu.se/eng/research/infrastructure/karp/karp}example"
+        )
+        for example in examples:
+            sentence = DS.Sentence()  # Ititiate Sentence
+            i = 0
+            for element in example:
+                for subelement in element.iter():
+                    role = subelement.get("name") or "None"
+                    text = subelement.text or ""
+                    text = text.split()
+                    position = subelement.get("n") or "out of place"
+                    number_of_words = len(text)
+                    # Create Frame Element
+                    fe = DS.FrameElement(role, (i, i + number_of_words - 1), position)
+                    i += number_of_words
+                    sentence.addWords(text)
+                    sentence.addFrameElement(fe)
+                    # print(fe)
+            frame.addSentence(sentence)
+        frames.append(frame)
+    return frames

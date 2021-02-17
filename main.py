@@ -1,16 +1,12 @@
-from data_parser import parse, create_data, parse_syn_tree
+from data_parser import parse, create_data, parse_syn_tree, parse_sem
 import data_struct as DS
 
 
 def main():
-    # parse()
-    # create_data()
-    frames = parse_syn_tree()
-    for frame in frames:
-        if frame.name == "Others_situation_as_stimulus":
-            for sentence in frame.getSentences():
-                DS.inorder(sentence.root)
-                print("")
+    sem_frames = parse_sem()
+    syn_frames = parse_syn_tree()
+
+    print(sem_frames[1].match(syn_frames[0]))
 
 
 if __name__ == "__main__":
