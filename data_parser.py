@@ -1,6 +1,7 @@
+import re
+from typing import List
 import xml.etree.ElementTree as ET
-import os
-import data_struct as DS
+from data_struct import Frame, Sentence, TreeNode, FrameElement
 
 
 def parse(datafile="swefn.xml"):
@@ -129,10 +130,21 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
 
     # Each frame
     for text in syn_root:
-        frame = DS.Frame(text.get("frame"), text.get("core_elements").split("|"))
+        core_elements = text.get("core_elements").split("|")
+        core_elements = [e.lstrip() for e in core_elements if e != ""]
+        lexical_units = text.get("lexical_units_saldo").split("|")
+        lexical_units = [e.lstrip() for e in lexical_units if e != ""]
+        peripheral_elements = text.get("peripheral_elements").split("|")
+        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        frame = Frame(
+            name=text.get("frame"),
+            core_elements=core_elements,
+            lexical_units=lexical_units,
+            peripheral_elements=peripheral_elements,
+        )
         # Each example sentance
         for example in text:
-            sentence = DS.Sentence()
+            sentence = Sentence()
             subtrees = {}
             words = example.iter(tag="w")
             root = None
@@ -143,25 +155,27 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
                 deprel = word.get("deprel")
                 placement = word.get("ref")
                 dephead = word.get("dephead")
+                lemma = word.get("lemma").split("|")
+                lemma = [e for e in lemma if e != ""]
 
                 if placement != None:
                     placement = int(placement)
                 if dephead != None:
                     dephead = int(dephead)
 
-                word_tree = DS.TreeNode(
+                word_node = TreeNode(
                     word=word.text,
-                    lemma=word.get("lemma"),
+                    lemma=lemma,
                     pos=word.get("pos"),
                     deprel=deprel,
                     dephead=dephead,
                     ref=placement,
                 )
 
-                subtrees[placement] = word_tree
-                sentence.addWord(word.text, placement)
+                subtrees[placement] = word_node
+                sentence.addWord(word_node, placement)
                 if deprel == "ROOT":
-                    root = word_tree
+                    root = word_node
 
             # Connect each treenode to its head treenode
             for ref in subtrees:
@@ -171,13 +185,15 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
                 if dephead != None:
                     head = subtrees[dephead]
                     head.addSubtree(word)
-                    subtrees[dephead] = head  # not sure if necessary
+                    word.addParent(head)
+                    # subtrees[dephead] = head  # not sure if necessary
 
             # Sometimes ROOT does not exist.
             # Is this an expected situation or an error in the data?
             if root != None:
-                sentence.addSynTree(root)
+                sentence.addSynRoot(root)
                 frame.addSentence(sentence)
+
         frames.append(frame)
     return frames
 
@@ -193,34 +209,163 @@ def parse_sem(datafile="swefn.xml"):
         sense = lexicalEntry.find("Sense")
         frameName = ""
         core_elements = []
+        peripheral_elements = []
+        lexical_units = []
         features = sense.findall("feat")
+
         for feature in features:
             # get frame name from feat with attribute BNFID
             if feature.get("att") == "BFNID":
                 frameName = feature.get("val")
+            elif feature.get("att") == "LU":
+                lexical_units.append(feature.get("val"))
             elif feature.get("att") == "coreElement":
                 core_elements.append(feature.get("val"))
+            elif feature.get("att") == "peripheralElement":
+                peripheral_elements.append(feature.get("val"))
 
-        frame = DS.Frame(frameName, core_elements)  # Initiate Frame
+        # If BNFID isn't available, use the sense id
+        if frameName == "":
+            frameName = sense.get("id").split("-")[-1]
+
+        # Clean up the core elements
+        core_elements = [e for e in core_elements if e != ""]
+
+        # Clean up the peripheral elements
+        peripheral_elements = [e for e in peripheral_elements if e != ""]
+
+        # Clean up the peripheral elements
+        peripheral_elements = [e for e in peripheral_elements if e != ""]
+
+        # Initiate Frame
+        frame = Frame(
+            name=frameName,
+            lexical_units=lexical_units,
+            core_elements=core_elements,
+            peripheral_elements=peripheral_elements,
+        )
         examples = sense.findall(
             "{http://spraakbanken.gu.se/eng/research/infrastructure/karp/karp}example"
         )
         for example in examples:
-            sentence = DS.Sentence()  # Ititiate Sentence
+            # Ititiate Sentence
+            sentence = Sentence()
             i = 0
             for element in example:
                 for subelement in element.iter():
                     role = subelement.get("name") or "None"
-                    text = subelement.text or ""
-                    text = text.split()
+                    text_string = subelement.text or ""
+                    text_list = re.findall(r"\w+|[^\w\s]", text_string, re.UNICODE)
                     position = subelement.get("n") or "out of place"
-                    number_of_words = len(text)
+                    number_of_words = len(text_list)
                     # Create Frame Element
-                    fe = DS.FrameElement(role, (i, i + number_of_words - 1), position)
+                    fe = FrameElement(role, (i, i + number_of_words - 1), position)
                     i += number_of_words
-                    sentence.addWords(text)
+                    sentence.addWords(text_list)
                     sentence.addFrameElement(fe)
                     # print(fe)
-            frame.addSentence(sentence)
-        frames.append(frame)
+            if sentence.getSentence() != []:
+                frame.addSentence(sentence)
+        if frame.getSentences() != []:
+            frames.append(frame)
     return frames
+
+
+def getFrame(name, frames):
+    for frame in frames:
+        if name == frame.getName():
+            return frame
+    return None
+
+
+def compareFrames(frame_a, frame_b):
+    if frame_a.getName() != frame_b.getName():
+        return "Frame names does not match"
+    frame_name = frame_a.getName()
+    frame_a_sentences = frame_a.getSentences()
+    frame_b_sentences = frame_b.getSentences()
+
+    frame_a_sentence_string = ""
+    frame_b_sentence_string = ""
+
+    for s in frame_a_sentences:
+        frame_a_sentence_string += "\n" + " ".join(s.getSentence())
+    for s in frame_b_sentences:
+        frame_b_sentence_string += "\n" + " ".join(s.getSentence())
+    return (
+        "Name: "
+        + frame_name
+        + "\nSentences a:"
+        + frame_a_sentence_string
+        + "\nSentences b:"
+        + frame_b_sentence_string
+        + "\nContains same sentences in order: "
+        + str(frame_a_sentence_string == frame_b_sentence_string)
+    )
+
+
+def combineSentences(
+    sentences_a: List[Sentence], sentences_b: List[Sentence]
+) -> List[Sentence]:
+    sentences_r = []
+    for s_a in sentences_a:
+        sentence = s_a.getSentence()
+        root = None
+        frameElements = []
+        for s_b in sentences_b:
+            if sentence == s_b.getSentence():
+                root = s_a.getRoot() or s_b.getRoot()
+                tree_nodes_ordered = (
+                    s_a.getTreeNodesOrdered() + s_b.getTreeNodesOrdered()
+                )
+                frameElements = s_a.getFrameElements() + s_b.getFrameElements()
+                s_r = Sentence(
+                    sentence=sentence,
+                    root=root,
+                    frameElements=frameElements,
+                    tree_nodes_ordered=tree_nodes_ordered,
+                )
+                sentences_r.append(s_r)
+    return sentences_r
+
+
+def combineFrames(frame_a: Frame, frame_b: Frame) -> Frame:
+    name = frame_a.getName()
+    if not frame_a.match(frame_b):
+        return None
+
+    lexical_units = frame_a.getLexicalUnits()
+    if lexical_units != frame_b.getLexicalUnits():
+        print("There is some discrepency with lexical units in: " + name)
+        print(lexical_units)
+        print(frame_b.getLexicalUnits())
+        print()
+
+    core_elements = frame_a.getCoreElements()
+    if core_elements != frame_b.getCoreElements():
+        print("There is some discrepency with core elements in: " + name)
+        print(core_elements)
+        print(frame_b.getCoreElements())
+        print()
+
+    peripheral_elements = frame_a.getPeripheralElements()
+    if peripheral_elements != frame_b.getPeripheralElements():
+        print("There is some discrepency with peripheral elements in: " + name)
+        print(peripheral_elements)
+        print(frame_b.getPeripheralElements())
+        print()
+
+    sentences = combineSentences(frame_a.getSentences(), frame_b.getSentences())
+    return Frame(name, core_elements, lexical_units, peripheral_elements, sentences)
+
+
+def combineFrameLists(frames_a: List[Frame], frames_b: List[Frame]) -> List[Frame]:
+    frames_r = []
+    for f_a in frames_a:
+        match = False
+        for f_b in frames_b:
+            if f_a.match(f_b) and not match:
+                f_r = combineFrames(f_a, f_b)
+                frames_r.append(f_r)
+                match = True
+    return frames_r
