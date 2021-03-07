@@ -9,7 +9,7 @@ from sklearn.feature_extraction import DictVectorizer
 from datetime import datetime
 
 
-def argument_identification(data: List[dict]):
+def train_svm(data: List[dict], file: str = None, gamma: float = 0.001, c: int = 100):
     # Just to make sure things are good and random
     random.shuffle(data)
 
@@ -23,13 +23,9 @@ def argument_identification(data: List[dict]):
     # data = data.images.reshape((n_samples, -1))
 
     # Create a classifier: a support vector classifier
-    clf = svm.SVC(gamma=0.001, C=100)
+    clf = svm.SVC(gamma=gamma, C=c)
 
-    # Split data into 50% train and 50% test subsets
-    # X_train, X_test, y_train, y_test = train_test_split(
-    #     data, data.target, test_size=0.5, shuffle=False
-    # )
-
+    # Split the test data
     X = [p[:-1] for p in data]
     y = [p[-1] for p in data]
     X_train = X[:half]
@@ -52,9 +48,9 @@ def argument_identification(data: List[dict]):
     disp.figure_.suptitle("Confusion Matrix")
     print(f"Confusion matrix:\n{disp.confusion_matrix}")
 
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-
-    f = open("arg_ident_results.txt", "a")
-    f.write(f"{dt_string}:\n{disp.confusion_matrix}")
-    f.close()
+    if file:
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        f = open("arg_ident_results.txt", "a")
+        f.write(f"{dt_string}:\n{disp.confusion_matrix}\n\n")
+        f.close()
