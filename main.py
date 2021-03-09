@@ -11,10 +11,14 @@ from data_parser import (
 )
 from data_struct import Frame
 from prune import pruneFrames
-from format_data import dict_data
-from training import train_svm
+from format_data import (
+    dict_data,
+    split_data_to_identification_subsets,
+    split_data_to_classification_subsets,
+)
+from training import train_svm, test_svm
 import time
-import copy
+import random
 
 
 def main():
@@ -27,55 +31,61 @@ def main():
 
     # Prune data
     pruneFrames(res_frames)
-    mid = time.time()
-    t = mid - start
-    milisec = int((t % 1) * 1000)
-    t = int(t)
-    print(
-        "Data parsing and pruning:    "
-        + str(t // 60)
-        + "m "
-        + str(t % 60)
-        + "s "
-        + str(milisec)
-        + "ms"
-    )
-    vector_data_raw = dict_data(res_frames)
-    vector_data_id = copy.deepcopy(vector_data_raw)
-    for d in vector_data_raw:
-        role = d["arg_role"]
-        if role != "None":
-            role = 1
-        else:
-            role = 0
-        d["arg_role"] = role
 
-    train_svm(vector_data_id, file="arg_ident_results.txt")
-    end = time.time()
-    t = end - mid
-    milisec = int((t % 1) * 1000)
-    t = int(t)
-    print(
-        "Argument identification:     "
-        + str(t // 60)
-        + "m "
-        + str(t % 60)
-        + "s "
-        + str(milisec)
-        + "ms"
+    # Structure data in dicts
+    dict_data_raw = dict_data(res_frames)
+
+    # Just to make sure things are good and random
+    random.shuffle(dict_data_raw)
+
+    id_data = split_data_to_identification_subsets(dict_data_raw)
+    cl_data = split_data_to_classification_subsets(dict_data_raw)
+
+    last_time = timestamp(start, "Data parsing pruning and vectorizing: ")
+
+    id_clf = train_svm(
+        x_data=id_data["x_train"],
+        y_data=id_data["y_train"],
     )
+
+    last_time = timestamp(last_time, "Argument identification training:     ")
+
+    test_svm(
+        id_clf,
+        x_test=id_data["x_test"],
+        y_test=id_data["y_test"],
+        file="arg_ident_results.txt",
+        display_conf_matrix=True,
+    )
+
+    last_time = timestamp(last_time, "Argument identification test:         ")
+
+    cl_clf = train_svm(
+        x_data=cl_data["x_train"],
+        y_data=cl_data["y_train"],
+    )
+
+    last_time = timestamp(last_time, "Argument classification training:     ")
+
+    test_svm(
+        cl_clf,
+        x_test=cl_data["x_test"],
+        y_test=cl_data["y_test"],
+        file="arg_class_results.txt",
+    )
+
+    last_time = timestamp(last_time, "Argument classification test:         ")
+
+    timestamp(start, "Total time:                           ")
+
+
+def timestamp(start: float, messege: str) -> float:
+    end = time.time()
     t = end - start
     milisec = int((t % 1) * 1000)
     t = int(t)
-    print(
-        "Total time:                  "
-        + str(t // 60)
-        + "m "
-        + str(t % 60)
-        + "s "
-        + str(milisec)
-        + "ms"
-    )
+    print(messege + str(t // 60) + "m " + str(t % 60) + "s " + str(milisec) + "ms")
+    return end
 
 
 if __name__ == "__main__":
