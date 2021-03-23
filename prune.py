@@ -66,6 +66,7 @@ def pruneFromPredicatePreserveTree(n: TreeNode) -> TreeNode:
     return predicate
 
 
+# Basic pruning of a sentence
 def prune(sentence: Sentence) -> None:
     fes = sentence.getFrameElements()
     fe_lu = None
@@ -85,14 +86,12 @@ def prune(sentence: Sentence) -> None:
     sentence.addArguments(arguments)
 
 
-# Return is not necessary since input is altered
 def pruneSentencesInFrame(frame: Frame) -> None:
     sentences = frame.getSentences()
     for s in sentences:
         prune(s)
 
 
-# Return is not necessary since input is altered
 def pruneFrames(frames: List[Frame]) -> None:
     pruneFaltySentences(frames)
     for f in frames:

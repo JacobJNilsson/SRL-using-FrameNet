@@ -4,6 +4,14 @@ import xml.etree.ElementTree as ET
 from data_struct import Frame, Sentence, TreeNode, FrameElement
 
 
+# Fix bad roles
+def pruneRoleName(role: str) -> str:
+    # Remove "." from the end of some frame names
+    if role.endswith("."):
+        role = role[:-1]
+    return role
+
+
 def parse(datafile="swefn.xml"):
     tree = ET.parse(datafile)
     root = tree.getroot()
@@ -132,10 +140,12 @@ def parse_syn_tree(datafile="swefn-ex.xml"):
     for text in syn_root:
         core_elements = text.get("core_elements").split("|")
         core_elements = [e.lstrip() for e in core_elements if e != ""]
+        core_elements = [pruneRoleName(r) for r in core_elements]
         lexical_units = text.get("lexical_units_saldo").split("|")
         lexical_units = [e.lstrip() for e in lexical_units if e != ""]
         peripheral_elements = text.get("peripheral_elements").split("|")
         peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
         frame = Frame(
             name=text.get("frame"),
             core_elements=core_elements,
@@ -230,12 +240,14 @@ def parse_sem(datafile="swefn.xml"):
 
         # Clean up the core elements
         core_elements = [e for e in core_elements if e != ""]
+        core_elements = [pruneRoleName(r) for r in core_elements]
 
         # Clean up the peripheral elements
         peripheral_elements = [e for e in peripheral_elements if e != ""]
+        peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
 
-        # Clean up the peripheral elements
-        peripheral_elements = [e for e in peripheral_elements if e != ""]
+        # Clean up the lexical units
+        lexical_units = [e for e in lexical_units if e != ""]
 
         # Initiate Frame
         frame = Frame(
@@ -254,6 +266,7 @@ def parse_sem(datafile="swefn.xml"):
             for element in example:
                 for subelement in element.iter():
                     role = subelement.get("name") or "None"
+                    role = pruneRoleName(role)
                     text_string = subelement.text or ""
                     text_list = re.findall(r"\w+|[^\w\s]", text_string, re.UNICODE)
                     position = subelement.get("n") or "out of place"

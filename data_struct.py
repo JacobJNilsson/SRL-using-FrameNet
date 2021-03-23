@@ -278,6 +278,9 @@ class Frame(object):
     def addSentence(self, sentence: Sentence) -> None:
         self.sentences = self.sentences + [sentence]
 
+    def addName(self, name: str) -> None:
+        self.name = name
+
     def removeSentence(self, sentence: Sentence) -> None:
         self.sentences.remove(sentence)
 
@@ -305,9 +308,6 @@ class Frame(object):
         )
 
 
-# Word data as vector
-
-
 # A bad syntax tree printer
 def inorder(tree: TreeNode):
     if tree is not []:
@@ -326,6 +326,7 @@ def inorder(tree: TreeNode):
         )
         for subtree in tree.subtrees:
             inorder(subtree)
+
 
 
 # A small example of the syntax tree and the printer
