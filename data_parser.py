@@ -1,6 +1,9 @@
 import re
-from typing import List
+import spacy
 import xml.etree.ElementTree as ET
+import spacy.tokenizer as st
+
+from typing import List
 from data_struct import Frame, Sentence, TreeNode, FrameElement
 
 
@@ -65,10 +68,6 @@ def parse(datafile="swefn.xml"):
 
 
 def create_data(datafile_1="swefn-ex.xml", datafile_2="swefn.xml"):
-    # script_dir = os.path.dirname(__file__)
-    # rel_path = "2091/data.txt"
-    # abs_file_path = os.path.join(script_dir, rel_path)
-
     # extracting data from syntax
     word_file = open("word", "w", encoding="utf8")
     lemma_file = open("lemma", "w", encoding="utf8")
@@ -131,7 +130,7 @@ def create_data(datafile_1="swefn-ex.xml", datafile_2="swefn.xml"):
     # for lexicalEntry in lexicalEntries:
 
 
-def parse_syn_tree(datafile="swefn-ex.xml"):
+def parse_syn_tree(datafile="swefn-ex.xml") -> List[Frame]:
     frames = []
     syn_tree = ET.parse(datafile)
     syn_root = syn_tree.getroot()
@@ -269,18 +268,130 @@ def parse_sem(datafile="swefn.xml"):
                     role = pruneRoleName(role)
                     text_string = subelement.text or ""
                     text_list = re.findall(r"\w+|[^\w\s]", text_string, re.UNICODE)
-                    position = subelement.get("n") or "out of place"
                     number_of_words = len(text_list)
                     # Create Frame Element
-                    fe = FrameElement(role, (i, i + number_of_words - 1), position)
+                    fe = FrameElement(role, (i, i + number_of_words - 1))
                     i += number_of_words
                     sentence.addWords(text_list)
                     sentence.addFrameElement(fe)
                     # print(fe)
             if sentence.getSentence() != []:
                 frame.addSentence(sentence)
+        # Prune frames without example sentences
         if frame.getSentences() != []:
             frames.append(frame)
+    return frames
+
+
+def custom_tokenizer(nlp):
+    prefix_re = re.compile(r"""^[\[\($€¥£"']""")
+    suffix_re = re.compile(r"""[\]\).,:;!?"']$""")
+    infix_re = re.compile(r"""[-~=+_^*:]""")
+    return st.Tokenizer(
+        nlp.vocab,
+        prefix_search=prefix_re.search,
+        suffix_search=suffix_re.search,
+        infix_finditer=infix_re.finditer,
+    )
+
+
+def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
+    nlp = spacy.load("sv_pipeline")
+    # Added custom tokenizer for recognizing math operands as seperate tokens ("1+2" -> "1", "+", "2")
+    nlp.tokenizer = custom_tokenizer(nlp)
+    frames = []
+    syn_tree = ET.parse(datafile)
+    syn_root = syn_tree.getroot()
+
+    # Each frame
+    for text in syn_root:
+        core_elements = text.get("core_elements").split("|")
+        core_elements = [e.lstrip() for e in core_elements if e != ""]
+        core_elements = [pruneRoleName(r) for r in core_elements]
+        lexical_units = text.get("lexical_units_saldo").split("|")
+        lexical_units = [e.lstrip() for e in lexical_units if e != ""]
+        peripheral_elements = text.get("peripheral_elements").split("|")
+        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
+        frame = Frame(
+            name=text.get("frame"),
+            core_elements=core_elements,
+            lexical_units=lexical_units,
+            peripheral_elements=peripheral_elements,
+        )
+        # Each example sentance
+        for example in text:
+            sentence = Sentence()
+            subtrees = {}
+            words = example.iter(tag="w")  # Each word in the sentance
+            root = None
+            frame_elements = example.iter(tag="element")
+
+            sentence_text = ""
+            for word in words:
+                pos = word.get("pos")
+                if pos != "MAD" and pos != "MID" and pos != "PAD":
+                    sentence_text += " "
+                sentence_text += word.text
+            sentence_text = sentence_text.lstrip()
+            doc = nlp(sentence_text)
+            print(f"Parsing sentence: {sentence_text}")
+            # Make a treenode for each word
+            for token in doc:
+                deprel = token.dep_
+                if deprel == "Root":
+                    deprel = "ROOT"
+                placement = token.i + 1
+                dephead = None
+                if not token.head == token:
+                    dephead = token.head.i + 1
+                lemma = token.lemma_
+
+                word_node = TreeNode(
+                    word=token.text,
+                    lemma=lemma,
+                    pos=token.tag_,
+                    deprel=deprel,
+                    dephead=dephead,
+                    ref=placement,
+                )
+
+                subtrees[placement] = word_node
+                sentence.addWord(word_node, placement)
+                if deprel == "ROOT":
+                    root = word_node
+            # Connect each treenode to its head treenode
+            for ref in subtrees:
+                word = subtrees[ref]
+                dephead = word.getDephead()
+                # Get the head treenode and add the subtree
+                if dephead != None:
+                    head = subtrees[dephead]
+                    head.addSubtree(word)
+                    word.addParent(head)
+                    # subtrees[dephead] = head  # not sure if necessary
+
+            # Sometimes ROOT does not exist.
+            # Is this an expected situation or an error in the data?
+            if root != None:
+                sentence.addSynRoot(root)
+                frame.addSentence(sentence)
+
+            for fe in frame_elements:
+                name = fe.get("name")
+                start = None
+                end = None
+                words = fe.iter(tag="w")
+                for word in words:
+                    if start == None:
+                        i = int(word.get("ref")) - 1
+                        start, end = i, i
+                    else:
+                        end = int(word.get("ref")) - 1
+                if not start == None:
+                    sentence.addFrameElement(FrameElement(name, (start, end)))
+        frames.append(frame)
+
     return frames
 
 
@@ -369,16 +480,26 @@ def combineFrames(frame_a: Frame, frame_b: Frame) -> Frame:
         print()
 
     sentences = combineSentences(frame_a.getSentences(), frame_b.getSentences())
-    return Frame(name, core_elements, lexical_units, peripheral_elements, sentences)
+    return Frame(
+        name=name,
+        lexical_units=lexical_units,
+        core_elements=core_elements,
+        peripheral_elements=peripheral_elements,
+        sentences=sentences,
+    )
 
 
 def combineFrameLists(frames_a: List[Frame], frames_b: List[Frame]) -> List[Frame]:
     frames_r = []
+    i = 1
     for f_a in frames_a:
+        # if match is true then f_a has found a match, used for frames without names
         match = False
         for f_b in frames_b:
             if f_a.match(f_b) and not match:
                 f_r = combineFrames(f_a, f_b)
                 frames_r.append(f_r)
                 match = True
+                # print(f"{i} frames has been combined. Frame combined: {f_a.getName()}")
+                i += 1
     return frames_r

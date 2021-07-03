@@ -9,6 +9,7 @@ import ast
 def dict_data(frames: List[Frame]) -> List[dict]:
     i = 0
     r = []
+    # print("Creating dict from data")
     for f in frames:
         frame_name = f.getName()
         for s in f.getSentences():
@@ -21,14 +22,47 @@ def dict_data(frames: List[Frame]) -> List[dict]:
                     fe_range = fe.getRange()
                     if ref > fe_range[0] and ref <= fe_range[1] + 1:
                         role = fe.getName()
+                parent = a.getParent()
+                if parent != None:
+                    head_name = (parent.getWord(),)
+                    head_lemma = (parent.getLemma(),)
+                    head_pos = (parent.getPos(),)
+                    head_deprel = (parent.getDeprel(),)
+                else:
+                    head_name = None
+                    head_lemma = None
+                    head_pos = None
+                    head_deprel = None
+
+                child_word = []
+                child_lemma = []
+                child_pos = []
+                child_deprel = []
+                for child in a.getSubtrees():
+                    child_word.append(child.getWord())
+                    child_lemma.append(child.getLemma())
+                    child_pos.append(child.getPos())
+                    child_deprel.append(child.getDeprel())
 
                 w = {
-                    "lemma": " ".join(a.getLemma()),  # make the list a string
+                    "word": a.getWord(),
+                    "lemma": a.getLemma(),
                     "pos": a.getPos(),
                     "deprel": a.getDeprel(),
                     "frame": frame_name,
-                    "arg_role": role,
+                    "head_name": head_name,
+                    "head_lemma": head_lemma,
+                    "head_pos": head_pos,
+                    "head_deprel": head_deprel,
+                    "ce": f.getCoreElements(),
+                    "pe": f.getPeripheralElements(),
+                    "child_word": child_word,
+                    "child_lemma": child_lemma,
+                    "child_pos": child_pos,
+                    "child_deprel": child_deprel,
+                    "arg_role": role,  # Classification data (result)
                 }
+                # print(f"{a.getLemma()=}")
                 # subtrees = a.getSubtrees()
                 r.append(w)
         i += 1
@@ -73,19 +107,27 @@ def split_data_to_identification_subsets(
     verification_ratio: float = 0,
 ) -> dict:
     # Leave the input unchanged
-    data_copy = copy.deepcopy(data)
+    #!! DOES NOT WORK
+    # data_copy = copy.deepcopy(data)
+
+    no_datapoints = -1
 
     # Change role to "boolean" one or zero
-    dict_data_id = booleanize_role(data_copy)
+    bool_data = booleanize_role(data)
+    role_id_list = [d.pop("arg_role") for d in bool_data][0:no_datapoints]
+    feature_id_dict = bool_data[0:no_datapoints]
+    print(f"Number of datapoints {len(role_id_list)}")
 
     # Vectorize data
     vec = DictVectorizer()
-    vector_data_id = vec.fit_transform(dict_data_id).toarray()
+    vector_feature_id = vec.fit_transform(feature_id_dict).toarray()
 
     # Split the test data
-    x = [p[:-1] for p in vector_data_id]
-    y = [p[-1] for p in vector_data_id]
-    split = int(len(vector_data_id) * train_ratio)
+    x = vector_feature_id
+    y = role_id_list
+    assert len(y) == len(x)
+
+    split = int(len(y) * train_ratio)
     r = {
         "x_train": x[:split],
         "x_test": x[split:],
@@ -107,7 +149,7 @@ def split_data_to_classification_subsets(
 
     # Filter data
     filter_list = []
-    f = open("class_occurance.txt", "r")
+    f = open("class_occurance.txt", "r", encoding="utf8")
     first_line = f.readline()
     classes = ast.literal_eval(first_line)
     for key in classes:
@@ -132,11 +174,11 @@ def split_data_to_classification_subsets(
         x.append(xi)
     assert len(y) == len(x)
 
-    # Saving the class information
+    # Saving the class information for analysis
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
     classes = {i: y.count(i) for i in y}
-    f = open("class_occurance.txt", "a")
+    f = open("class_occurance.txt", "a", encoding="utf8")
     f.write(dt_string + ":\n")
     f.write(description + "\n")
     f.write(str(classes) + "\n\n")
@@ -163,6 +205,10 @@ def split_data_to_classification_subsets(
     f.write("Class with min no. members: " + minClass + ", " + str(min) + "\n\n\n")
     f.close()
 
+    # Get a list of frames
+    f = [p["frame"] for p in x]
+    assert len(x) == len(f)
+
     vec = DictVectorizer()
     x = vec.fit_transform(x).toarray()
 
@@ -173,11 +219,10 @@ def split_data_to_classification_subsets(
         "x_test": x[split:],
         "y_train": y[:split],
         "y_test": y[split:],
+        "f_train": f[:split],
+        "f_test": f[split:],
     }
 
-    # Vectorize data
-
-    # y = vec.fit_transform(y).toarray()
     return r
 
 
@@ -186,10 +231,12 @@ def booleanize_role(data):
     # Change role to "boolean" one or zero
     for d in data:
         role = d["arg_role"]
-        if role != "None":
-            role = 1
+        # print(role)
+        if role != "None" and role != None:
+            role = 1.0
         else:
-            role = 0
+            role = 0.0
+        # print(f"got role {role}\n")
         d["arg_role"] = role
     return data
 
@@ -198,7 +245,7 @@ def filter_roles(data: List[dict], filter_list: list):
     r = []
     for d in data:
         role = d["arg_role"]
-        if role != "None" and not role in filter_list:
+        if role != "None" and not role in filter_list and not role == "LU":
             r.append(d)
     return r
 

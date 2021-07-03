@@ -1,4 +1,6 @@
+from __future__ import annotations
 from typing import List
+import copy
 
 # Syntax tree with data
 class TreeNode(object):
@@ -25,8 +27,50 @@ class TreeNode(object):
     def __str__(self) -> str:
         return self.printSubtree("")
 
+    # def __cmp__(self, other):
+    #     return cmp(self.name, other.name)
+
+    # def __copy__(self):
+    #     print("__copy__()")
+    #     return TreeNode(
+    #         self.word,
+    #         self.lemma,
+    #         self.pos,
+    #         self.deprel,
+    #         self.dephead,
+    #         self.parent,
+    #         self.subtrees,
+    #         self.ref,
+    #     )
+
+    # def __deepcopy__(self, memo):
+    #     print("__deepcopy__(%s)" % str(memo))
+    #     return TreeNode(
+    #         copy.deepcopy(
+    #             self.word,
+    #             self.lemma,
+    #             self.pos,
+    #             self.deprel,
+    #             self.dephead,
+    #             self.parent,
+    #             self.subtrees,
+    #             self.ref,
+    #             memo,
+    #         )
+    #     )
+
     def printSubtree(self, level) -> str:
-        r = level + str(self.ref) + " " + self.word + "\n"
+        r = (
+            level
+            + str(self.ref)
+            + " "
+            + self.word
+            + " "
+            + self.pos
+            + " "
+            + str(self.dephead or "ROOT")
+            + "\n"
+        )
         for t in self.subtrees:
             r += t.printSubtree(level + "    ")
         return r
@@ -52,10 +96,10 @@ class TreeNode(object):
     def getLemma(self):
         return self.lemma
 
-    def getSubtrees(self):
-        return self.subtrees.copy()
+    def getSubtrees(self) -> List[TreeNode]:
+        return self.subtrees
 
-    def getParent(self):
+    def getParent(self) -> TreeNode:
         return self.parent
 
     def getAllSubtrees(self) -> list:
@@ -131,13 +175,12 @@ class TreeNode(object):
 
 # A Frame element containing the type, its place in the sentence and "n"
 class FrameElement(object):
-    def __init__(self, name, range=(0, 0), pos=None):
+    def __init__(self, name, range=(0, 0)):
         self.name = name
         self.range = range
-        self.pos = pos
 
     def __str__(self):
-        return "[" + self.pos + "] " + self.name + " " + str(self.range)
+        return self.name + " " + str(self.range)
 
     def getName(self):
         return self.name
@@ -158,8 +201,8 @@ class Sentence(object):
     ):
         self.sentence = sentence  # The sentence as a string
         self.root = root  # The sentance as a syntax tree
-        self.tree_nodes_ordered = tree_nodes_ordered
-        self.frameElements = frameElements
+        self.tree_nodes_ordered = tree_nodes_ordered  # A list of tree nodes in order
+        self.frameElements = frameElements  # FrameNet data
         self.arguments = arguments
 
     def __str__(self) -> str:
@@ -217,8 +260,15 @@ class Sentence(object):
     def getArguments(self) -> List[TreeNode]:
         return self.arguments
 
-    def getNode(self, i: int = 1) -> TreeNode:
-        return self.tree_nodes_ordered[i]
+    def getNode(self, index: int = 0) -> TreeNode:
+        if not index < len(self.tree_nodes_ordered):
+            print(f"Index '{index}' out of bounds: {self.sentence}")
+        return self.tree_nodes_ordered[index]
+
+    def getLU(self) -> FrameElement:
+        for fe in self.frameElements:
+            if fe.getName() == "LU":
+                return fe
 
 
 # A frame with data about the frame and example sentences
@@ -326,7 +376,6 @@ def inorder(tree: TreeNode):
         )
         for subtree in tree.subtrees:
             inorder(subtree)
-
 
 
 # A small example of the syntax tree and the printer

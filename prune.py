@@ -1,7 +1,9 @@
 from typing import List
 from data_struct import Frame, Sentence, TreeNode, FrameElement
+import copy
 
-
+# Remove sentences without LU
+# TODO Remove sentences with several LUs
 def pruneFaltySentences(frames: List[Frame]) -> None:
     for f in frames:
         sentences = f.getSentences().copy()
@@ -29,6 +31,7 @@ def pruneFromPredicate(predicates: List[TreeNode]) -> List[TreeNode]:
                     role != "MID"
                     and role != "PAD"
                     and role != "MAD"
+                    and role != "PUNCT"
                     and not c in predicates
                     and not c in arguments
                 ):
@@ -68,13 +71,7 @@ def pruneFromPredicatePreserveTree(n: TreeNode) -> TreeNode:
 
 # Basic pruning of a sentence
 def prune(sentence: Sentence) -> None:
-    fes = sentence.getFrameElements()
-    fe_lu = None
-    for fe in fes:
-        if fe.getName() == "LU":
-            fe_lu = fe
-            break
-    assert fe_lu != None
+    fe_lu = sentence.getLU()
     lu_range = fe_lu.getRange()
     lus = []
     for i in range(lu_range[0], lu_range[1] + 1):
@@ -92,7 +89,9 @@ def pruneSentencesInFrame(frame: Frame) -> None:
         prune(s)
 
 
-def pruneFrames(frames: List[Frame]) -> None:
+def pruneFrames(frames: List[Frame]) -> List[Frame]:
+    # frames_copy = copy.deepcopy(frames)  #!! Does not work
     pruneFaltySentences(frames)
     for f in frames:
         pruneSentencesInFrame(f)
+    return frames
