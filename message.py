@@ -2,7 +2,9 @@ import smtplib
 from email.message import EmailMessage
 
 
-def send_email(subject, body, to):
+def send_email(subject, body, to, send=True):
+    if not send:
+        return
     user = "dogg.bott1@gmail.com"
     password = "lqhqbwbkpurtnjuj"
 

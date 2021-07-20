@@ -179,6 +179,7 @@ def parse_syn_tree(datafile="swefn-ex.xml") -> List[Frame]:
                     deprel=deprel,
                     dephead=dephead,
                     ref=placement,
+                    frame=frame,
                 )
 
                 subtrees[placement] = word_node
@@ -319,6 +320,7 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
             lexical_units=lexical_units,
             peripheral_elements=peripheral_elements,
         )
+
         # Each example sentance
         for example in text:
             sentence = Sentence()
@@ -327,15 +329,17 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
             root = None
             frame_elements = example.iter(tag="element")
 
+            # Create the sentence as plaintext
             sentence_text = ""
             for word in words:
                 pos = word.get("pos")
-                if pos != "MAD" and pos != "MID" and pos != "PAD":
+                if pos != "MAD" and pos != "MID" and pos != "PAD":  # PUNCT?
                     sentence_text += " "
                 sentence_text += word.text
             sentence_text = sentence_text.lstrip()
             doc = nlp(sentence_text)
             print(f"Parsing sentence: {sentence_text}")
+
             # Make a treenode for each word
             for token in doc:
                 deprel = token.dep_
@@ -354,6 +358,7 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                     deprel=deprel,
                     dephead=dephead,
                     ref=placement,
+                    frame=frame,
                 )
 
                 subtrees[placement] = word_node
@@ -377,6 +382,7 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                 sentence.addSynRoot(root)
                 frame.addSentence(sentence)
 
+            # Add the frame elements to the sentence
             for fe in frame_elements:
                 name = fe.get("name")
                 start = None
@@ -390,8 +396,101 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                         end = int(word.get("ref")) - 1
                 if not start == None:
                     sentence.addFrameElement(FrameElement(name, (start, end)))
-        frames.append(frame)
 
+        frames.append(frame)
+    return frames
+
+
+def parse_malt(datafile="swefn-ex.xml") -> List[Frame]:
+    frames = []
+    syn_tree = ET.parse(datafile)
+    syn_root = syn_tree.getroot()
+
+    # Each frame
+    for text in syn_root:
+        core_elements = text.get("core_elements").split("|")
+        core_elements = [e.lstrip() for e in core_elements if e != ""]
+        core_elements = [pruneRoleName(r) for r in core_elements]
+        lexical_units = text.get("lexical_units_saldo").split("|")
+        lexical_units = [e.lstrip() for e in lexical_units if e != ""]
+        peripheral_elements = text.get("peripheral_elements").split("|")
+        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
+        frame = Frame(
+            name=text.get("frame"),
+            core_elements=core_elements,
+            lexical_units=lexical_units,
+            peripheral_elements=peripheral_elements,
+        )
+
+        # Each example sentance
+        for example in text:
+            sentence = Sentence()
+            subtrees = {}
+            words = example.iter(tag="w")  # Each word in the sentance
+            root = None
+            frame_elements = example.iter(tag="element")
+
+            # Make a treenode for each word
+            for word in words:
+                deprel = word.get("deprel")
+                placement = word.get("ref")
+                dephead = word.get("dephead")
+                lemma = word.get("lemma").split("|")
+                lemma = [e for e in lemma if e != ""]
+
+                if placement != None:
+                    placement = int(placement)
+                if dephead != None:
+                    dephead = int(dephead)
+
+                word_node = TreeNode(
+                    word=word.text,
+                    lemma=lemma,
+                    pos=word.get("pos"),
+                    deprel=deprel,
+                    dephead=dephead,
+                    ref=placement,
+                    frame=frame,
+                )
+
+                subtrees[placement] = word_node
+                sentence.addWord(word_node, placement)
+                if deprel == "ROOT":
+                    root = word_node
+
+            # Connect each treenode to its head treenode
+            for ref in subtrees:
+                word = subtrees[ref]
+                dephead = word.getDephead()
+                # Get the head treenode and add the subtree
+                if dephead != None:
+                    head = subtrees[dephead]
+                    head.addSubtree(word)
+                    word.addParent(head)
+
+            # Sometimes ROOT does not exist.
+            # Is this an expected situation or an error in the data?
+            if root != None:
+                sentence.addSynRoot(root)
+                frame.addSentence(sentence)
+
+            # Add the frame elements to the sentence
+            for fe in frame_elements:
+                name = fe.get("name")
+                start = None
+                end = None
+                words = fe.iter(tag="w")
+                for word in words:
+                    if start == None:
+                        i = int(word.get("ref")) - 1
+                        start, end = i, i
+                    else:
+                        end = int(word.get("ref")) - 1
+                if not start == None:
+                    sentence.addFrameElement(FrameElement(name, (start, end)))
+
+        frames.append(frame)
     return frames
 
 

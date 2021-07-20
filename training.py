@@ -1,15 +1,19 @@
-from format_data import Frame
+from data_struct import Sentence, TreeNode
+from format_data import Frame, create_result_data, create_result_data
 from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn import svm, metrics
+from sklearn import svm, metrics, calibration
 from sklearn.model_selection import GridSearchCV, cross_val_predict
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.feature_extraction import DictVectorizer
 from datetime import datetime
 import sys
 import os
 from joblib import parallel_backend
+
+# from helpers import *
 
 
 def train_svm(
@@ -23,14 +27,14 @@ def train_svm(
 ):
 
     # Create a classifier: a support vector classifier
-    clf = svm.SVC(
-        gamma=gamma,
+    clf = svm.LinearSVC(
         C=c,
-        cache_size=cache_size,
-        kernel=kernel,
-        probability=prob,
         verbose=True,
+        random_state=1,
+        max_iter=100000,
     )
+    if prob:
+        clf = calibration.CalibratedClassifierCV(clf)
 
     # Learn the data on the train subset
     with parallel_backend("threading", n_jobs=-1):
@@ -155,29 +159,30 @@ def test_labeler(
     # save the expected output
     f3 = open(directory + "/labeling_expected_output.txt", "w")
     f3.write(str(y))
-
-    prediction = calc_proba(
-        frame_data=frame_data,
-        input_frames=frames,
-        role_key=role_key,
-        directory=directory,
-        proba_matrix=probability_matrix,
-    )
-
-    # save the predicted output
-    f3 = open(directory + "/labeling_predictions.txt", "w")
-    f3.write(str(prediction))
     f3.close()
 
-    # save the classification report
-    m = metrics.classification_report(y, prediction, zero_division=1)
-    f4 = open(directory + "/labeling_metrics.txt", "w")
-    f4.write(f"{m}\n")
-    f4.close()
+    # prediction = calc_proba(
+    #     frame_data=frame_data,
+    #     input_frames=frames,
+    #     role_key=role_key,
+    #     directory=directory,
+    #     proba_matrix=probability_matrix,
+    # )
+
+    # # save the predicted output
+    # f3 = open(directory + "/labeling_predictions.txt", "w")
+    # f3.write(str(prediction))
+    # f3.close()
+
+    # # save the classification report
+    # m = metrics.classification_report(y, prediction, zero_division=1)
+    # f4 = open(directory + "/labeling_metrics.txt", "w")
+    # f4.write(f"{m}\n")
+    # f4.close()
 
 
-#!! needs more work before use (see test_labeler())
 def cross_val(
+    directory: str,
     x: List,
     y: List,
     frames: List,
@@ -191,14 +196,18 @@ def cross_val(
     prob: bool = True,
     clf=None,
 ):
-    now = datetime.now()
-    dt_string = now.strftime("_%d-%m-%Y %H:%M")
-    result_folder = "results" + dt_string + "/"
+
+    result_folder = directory + "/results"
     if clf == None:
-        clf = svm.SVC(
-            gamma=gamma, C=c, cache_size=cache_size, kernel=kernel, probability=prob
+        clf = calibration.CalibratedClassifierCV(
+            svm.LinearSVC(
+                C=c,
+                verbose=True,
+                random_state=1,
+                max_iter=100000,
+            )
         )
-    proba = cross_val_predict(
+    probabilities = cross_val_predict(
         clf,
         x,
         y,
@@ -206,72 +215,47 @@ def cross_val(
         n_jobs=4,
     )
     print("Done with cross validation")
-    role_key = np.unique(y)
-
+    classes = np.unique(y)
     np.set_printoptions(threshold=sys.maxsize)
+    try:
+        os.mkdir(result_folder)
+    except:
+        raise OSError("Unable to create directory")
 
-    f1 = open(result_folder + file + dt_string + ".txt", "a")
-    f1.write(description + "\n")
-    f1.write(str(role_key) + "\n")
-    f1.write(str(proba))
+    f1 = open(result_folder + "/" + file + ".txt", "a")
+    f1.write(str(classes) + "/n")
+    f1.write(str(probabilities))
     f1.close()
 
-    f2 = open(result_folder + "input_frames" + dt_string + ".txt", "a")
-    f2.write(description + "\n")
-    f2.write(str(frames))
-    f2.close()
+    f2 = open(result_folder + "/output" + ".txt", "a")
+    f2.write(str(y))
 
-    f3 = open(result_folder + "output" + dt_string + ".txt", "a")
-    f3.write(description + "\n")
-    f3.write(str(y))
+    predictions = calc_proba(classes, probabilities)
 
-    prediction = calc_proba(
-        frame_data=frame_data,
-        input_frames=frames,
-        role_key=role_key,
-    )
-
-    f3 = open(result_folder + "result" + dt_string + ".txt", "a")
-    f3.write(description + "\n")
-    f3.write(prediction)
+    f3 = open(result_folder + "/result" + ".txt", "a")
+    f3.write(str(predictions))
     f3.close()
 
+    # save the classification report
+    m = metrics.classification_report(y, predictions, zero_division=1)
+    f4 = open(directory + "/labeling_metrics.txt", "w")
+    f4.write(f"{m}\n")
+    f4.close()
+    print(f"{m}")
+    return clf
 
-def calc_proba(
-    frame_data: List[Frame],
-    input_frames=None,
-    role_key=None,
-    proba_matrix=None,
-    directory=None,
-) -> List[str]:
-    # if not input_frames and directory:
-    #     # read input_frames
-    #     # with open(directory + "/") as fp:
-    #     #     data = [ast.literal_eval(line) for line in fp if line.strip()]
-    #     a = None
-    # if not output and dir:
-    #     # read output
-    #     a = None
-    # if not proba_matrix and directory:
-    #     # read matrix
-    #     with open(directory + "/labeling_raw_predictions.txt") as fp:
-    #         text = fp.read().strip("\n")
-    #         proba_matrix = eval(text)
-    # if role_key == None and directory:
-    #     # read role if role_key
-    #     a = None
 
-    pruned_proba_matrix = []
-    for i in range(len(proba_matrix)):
-        p = proba_matrix[i]
-        frame = input_frames[i]
-        pruned_proba_matrix.append(prune_roles_to_frame(frame, role_key, p, frame_data))
-
-    # Get the actual predictions
-    # predictions = predict(pruned_proba_matrix)
-    predictions = predict(proba_matrix)
-
-    return predictions
+def calc_proba(classes, probabilities) -> List[str]:
+    r = []
+    for p in probabilities:
+        best_guess_value = 0
+        best_guess = None
+        for c, probability in zip(classes, p):
+            if probability > best_guess_value:
+                best_guess = c
+                best_guess_value = probability
+        r.append(best_guess)
+    return r
 
 
 def prune_roles_to_frame(
@@ -305,9 +289,74 @@ def predict(proba_matrix) -> List[str]:
     for row in proba_matrix:
         prediction = None
         prediction_value = 0
-        for key in row:
+        for key in range(len(row)):
             if row[key] > prediction_value:
                 prediction = key
                 prediction_value = row[key]
         predictions.append(prediction)
     return predictions
+
+
+def train_classifier(
+    words: List[TreeNode],
+    features: dict,
+    bool_result: bool,
+    c: float = 100.0,
+    prob: bool = False,
+):
+
+    # Extract feature data
+    X_data = [w.getFeatures() for w in words]
+    y_data = create_result_data(words, bool_result)
+
+    # Create a classifier: a support vector classifier
+    clf = svm.LinearSVC(
+        C=c,
+        verbose=True,
+        random_state=1,
+        max_iter=100000,
+    )
+    if prob:
+        clf = calibration.CalibratedClassifierCV(clf)
+
+    # Learn the data on the train subset
+    with parallel_backend("threading", n_jobs=-1):
+        clf.fit(X_data, y_data)
+
+    return clf
+
+
+def test_classifier(
+    clf,
+    words: List[TreeNode],
+    features: dict,
+    bool_result: bool,
+) -> str:
+
+    # Extract feature data
+    X_data = [w.getFeatures() for w in words]
+    y_data = create_result_data(words, bool_result)
+
+    if bool_result:
+        with parallel_backend("threading", n_jobs=-1):
+            predictions = clf.predict(X_data)
+    else:
+        probabilities = clf.predict_proba(X_data)
+        classes = np.unique(y_data)
+        predictions = calc_proba(classes, probabilities)
+
+    # since
+    for word, prediction in zip(words, predictions):
+        word.addPrediction(str(prediction))
+        word.correctChildren(str(prediction))
+
+
+def evaluate_sentences(sentences: List[Sentence]):
+    y = []
+    p = []
+    for s in sentences:
+        roles, predictions = s.getRolesAndPredictions()
+        y.append(roles)
+        p.append(predictions)
+    evaluation = metrics.classification_report(y, p, zero_division=1)
+    return evaluation

@@ -1,9 +1,11 @@
 from datetime import datetime
+from math import floor
 from typing import List
 from data_struct import Frame, Sentence, TreeNode, FrameElement
 import copy
 from sklearn.feature_extraction import DictVectorizer
 import ast
+import random
 
 
 def dict_data(frames: List[Frame]) -> List[dict]:
@@ -24,15 +26,15 @@ def dict_data(frames: List[Frame]) -> List[dict]:
                         role = fe.getName()
                 parent = a.getParent()
                 if parent != None:
-                    head_name = (parent.getWord(),)
-                    head_lemma = (parent.getLemma(),)
-                    head_pos = (parent.getPos(),)
-                    head_deprel = (parent.getDeprel(),)
+                    head_name = parent.getWord()
+                    head_lemma = parent.getLemma()
+                    head_pos = parent.getPos()
+                    head_deprel = parent.getDeprel()
                 else:
-                    head_name = None
-                    head_lemma = None
-                    head_pos = None
-                    head_deprel = None
+                    head_name = "None"
+                    head_lemma = "None"
+                    head_pos = "None"
+                    head_deprel = "None"
 
                 child_word = []
                 child_lemma = []
@@ -54,12 +56,12 @@ def dict_data(frames: List[Frame]) -> List[dict]:
                     "head_lemma": head_lemma,
                     "head_pos": head_pos,
                     "head_deprel": head_deprel,
-                    "ce": f.getCoreElements(),
-                    "pe": f.getPeripheralElements(),
-                    "child_word": child_word,
-                    "child_lemma": child_lemma,
-                    "child_pos": child_pos,
-                    "child_deprel": child_deprel,
+                    # "ce": f.getCoreElements(), # listor
+                    # "pe": f.getPeripheralElements(), # listor
+                    # "child_word": child_word, # listor
+                    # "child_lemma": child_lemma, # listor
+                    # "child_pos": child_pos, # listor
+                    # "child_deprel": child_deprel, # listor
                     "arg_role": role,  # Classification data (result)
                 }
                 # print(f"{a.getLemma()=}")
@@ -100,6 +102,20 @@ def sentence_data(frames: List[Frame]) -> List[List[dict]]:
     return r
 
 
+def split_data_train_test(
+    frames: List[Frame], train_ratio=0.8, random_state=0
+) -> tuple[List[Sentence], List[Sentence]]:
+    all_sentences = []
+    for frame in frames:
+        sentences = frame.getSentences()
+        all_sentences.extend(sentences)
+    random.Random(1).shuffle(all_sentences)
+    split = int(len(all_sentences) * train_ratio)
+    train_sentences = all_sentences[:split]
+    test_sentences = all_sentences[split:]
+    return (train_sentences, test_sentences)
+
+
 def split_data_to_identification_subsets(
     data: List,
     train_ratio: float = 0.5,
@@ -108,12 +124,13 @@ def split_data_to_identification_subsets(
 ) -> dict:
     # Leave the input unchanged
     #!! DOES NOT WORK
-    # data_copy = copy.deepcopy(data)
+    data_copy = copy.deepcopy(data)
+    # data_copy = data
 
     no_datapoints = -1
 
     # Change role to "boolean" one or zero
-    bool_data = booleanize_role(data)
+    bool_data = booleanize_role(data_copy)
     role_id_list = [d.pop("arg_role") for d in bool_data][0:no_datapoints]
     feature_id_dict = bool_data[0:no_datapoints]
     print(f"Number of datapoints {len(role_id_list)}")
@@ -145,7 +162,9 @@ def split_data_to_classification_subsets(
     description="",
 ) -> dict:
     # Leave the input unchanged
+    #!! DOES NOT WORK
     data_copy = copy.deepcopy(data)
+    # data_copy = data
 
     # Filter data
     filter_list = []
@@ -175,35 +194,35 @@ def split_data_to_classification_subsets(
     assert len(y) == len(x)
 
     # Saving the class information for analysis
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    classes = {i: y.count(i) for i in y}
-    f = open("class_occurance.txt", "a", encoding="utf8")
-    f.write(dt_string + ":\n")
-    f.write(description + "\n")
-    f.write(str(classes) + "\n\n")
-    i = 0
-    sum = 0
-    max = 0
-    maxClass = ""
-    min = 999999
-    minClass = ""
-    for c in classes:
-        i += 1
-        val = classes[c]
-        sum += val
-        if max < val:
-            max = val
-            maxClass = c
-        if min > val:
-            min = val
-            minClass = c
-    f.write("No. classes total: " + str(i) + "\n")
-    f.write("No. members total: " + str(sum) + "\n")
-    f.write("Averege no. members per class: " + str(sum / i) + "\n")
-    f.write("Class with max no. members: " + maxClass + ", " + str(max) + "\n")
-    f.write("Class with min no. members: " + minClass + ", " + str(min) + "\n\n\n")
-    f.close()
+    # now = datetime.now()
+    # dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    # classes = {i: y.count(i) for i in y}
+    # f = open("class_occurance.txt", "a", encoding="utf8")
+    # f.write(dt_string + ":\n")
+    # f.write(description + "\n")
+    # f.write(str(classes) + "\n\n")
+    # i = 0
+    # sum = 0
+    # max = 0
+    # maxClass = ""
+    # min = 999999
+    # minClass = ""
+    # for c in classes:
+    #     i += 1
+    #     val = classes[c]
+    #     sum += val
+    #     if max < val:
+    #         max = val
+    #         maxClass = c
+    #     if min > val:
+    #         min = val
+    #         minClass = c
+    # f.write("No. classes total: " + str(i) + "\n")
+    # f.write("No. members total: " + str(sum) + "\n")
+    # f.write("Averege no. members per class: " + str(sum / i) + "\n")
+    # f.write("Class with max no. members: " + maxClass + ", " + str(max) + "\n")
+    # f.write("Class with min no. members: " + minClass + ", " + str(min) + "\n\n\n")
+    # f.close()
 
     # Get a list of frames
     f = [p["frame"] for p in x]
@@ -261,3 +280,61 @@ def filter_roles_in_sentences(data: List[List[dict]], filter_list: list):
         if sentence != []:
             r.append(sentence)
     return r
+
+
+def create_feature_data(words, features):
+    # create feature data
+    X_data = []
+    for word in words:
+        w = {}
+        head = word.getParent()
+        if "word" in features:
+            w["word"] = word.getWord()
+        if "lemma" in features:
+            w[""] = word.getLemma()
+        if "pos" in features:
+            w["pos"] = word.getPos()
+        if "deprel" in features:
+            w["deprel"] = word.getDeprel()
+        if "frame" in features:
+            w["frame"] = word.getFrame().getName()
+        if "head_name" in features:
+            if head != None:
+                head_word = head.getWord()
+            else:
+                head_word = "None"
+            w["head_name"] = head_word
+        if "head_lemma" in features:
+            if head != None:
+                head_lemma = head.getLemma()
+            else:
+                head_lemma = "None"
+            w["head_lemma"] = head_lemma
+        if "head_pos" in features:
+            if head != None:
+                head_pos = head.getPos()
+            else:
+                head_pos = "None"
+            w["head_pos"] = head_pos
+        X_data.append(w)
+    vec = DictVectorizer()
+    X_data = vec.fit_transform(X_data).toarray()
+    return X_data
+
+
+def create_result_data(words, bool_result):
+    y_data = [w.getRole() for w in words]
+    if bool_result:
+        y_data = [0 if role == "None" else 1 for role in y_data]
+    return y_data
+
+
+def create_feature_representation(frames: List[Frame], extract_features):
+    words: List[TreeNode] = []
+    for f in frames:
+        for s in f.getSentences():
+            for w in s.getTreeNodesOrdered():
+                words.append(w)
+    features = create_feature_data(words, extract_features)
+    for w, f in zip(words, features):
+        w.addFeatures(f)

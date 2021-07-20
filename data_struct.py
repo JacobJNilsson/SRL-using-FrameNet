@@ -14,6 +14,10 @@ class TreeNode(object):
         parent=None,  # Parent node
         subtrees: list = [],
         ref: int = -1,  # The place of the word in the sentence
+        frame: Frame = None,
+        role: str = "None",
+        prediction: str = "None",
+        features=[],
     ):
         self.word = word
         self.lemma = lemma
@@ -23,41 +27,13 @@ class TreeNode(object):
         self.parent = parent
         self.subtrees = subtrees
         self.ref = ref
+        self.frame = frame
+        self.role = role
+        self.prediction = prediction
+        self.features = features
 
     def __str__(self) -> str:
         return self.printSubtree("")
-
-    # def __cmp__(self, other):
-    #     return cmp(self.name, other.name)
-
-    # def __copy__(self):
-    #     print("__copy__()")
-    #     return TreeNode(
-    #         self.word,
-    #         self.lemma,
-    #         self.pos,
-    #         self.deprel,
-    #         self.dephead,
-    #         self.parent,
-    #         self.subtrees,
-    #         self.ref,
-    #     )
-
-    # def __deepcopy__(self, memo):
-    #     print("__deepcopy__(%s)" % str(memo))
-    #     return TreeNode(
-    #         copy.deepcopy(
-    #             self.word,
-    #             self.lemma,
-    #             self.pos,
-    #             self.deprel,
-    #             self.dephead,
-    #             self.parent,
-    #             self.subtrees,
-    #             self.ref,
-    #             memo,
-    #         )
-    #     )
 
     def printSubtree(self, level) -> str:
         r = (
@@ -80,6 +56,15 @@ class TreeNode(object):
 
     def addParent(self, parent):
         self.parent = parent
+
+    def addRole(self, role):
+        self.role = role
+
+    def addPrediction(self, prediction):
+        self.prediction = prediction
+
+    def addFeatures(self, features):
+        self.features = features
 
     def getPos(self):
         return self.pos
@@ -129,6 +114,27 @@ class TreeNode(object):
 
         return r
 
+    def getRoot(self):
+        if self.parent == None:
+            return self
+        else:
+            return self.parent.getRoot()
+
+    def getWord(self):
+        return self.word
+
+    def getFrame(self):
+        return self.frame
+
+    def getRole(self):
+        return self.role
+
+    def getPrediction(self):
+        return self.prediction
+
+    def getFeatures(self):
+        return self.features
+
     def copy(self, parent=None, child=None, ref=None):
         me = TreeNode(
             word=self.word,
@@ -163,14 +169,14 @@ class TreeNode(object):
     def removeChild(self, child):
         self.subtrees.remove(child)
 
-    def getRoot(self):
-        if self.parent == None:
-            return self
-        else:
-            return self.parent.getRoot()
+    def correctChildrenWith(self, role, prediction):
+        for child in self.subtrees:
+            if child.getRole() == role:
+                child.addPrediction(prediction)
+                child.correctChildrenWith(role, prediction)
 
-    def getWord(self):
-        return self.word
+    def correctChildren(self, prediction):
+        self.correctChildrenWith(self.getRole(), prediction)
 
 
 # A Frame element containing the type, its place in the sentence and "n"
@@ -185,6 +191,7 @@ class FrameElement(object):
     def getName(self):
         return self.name
 
+    # Zero indexed
     def getRange(self):
         return self.range
 
@@ -239,14 +246,27 @@ class Sentence(object):
             print("There already is a root, something's fishy")
         self.root = root
 
-    def addFrameElement(self, frameElement):
+    def addFrameElement(self, frameElement: FrameElement):
         self.frameElements = self.frameElements + [frameElement]
+        fe_range = frameElement.getRange()
+        fe_name = frameElement.getName()
+        if len(self.tree_nodes_ordered) > fe_range[1]:
+            for i in range(fe_range[0], fe_range[1] + 1):
+                self.tree_nodes_ordered[i].addRole(fe_name)
 
     def addArguments(self, arguments: List[TreeNode]):
         self.arguments = self.arguments + arguments
 
     def getSentence(self) -> List[str]:
         return self.sentence
+
+    def getRolesAndPredictions(self) -> tuple[List[str], List[str]]:
+        roles = []
+        predictions = []
+        for w in self.getTreeNodesOrdered():
+            roles.append(w.getRole())
+            predictions.append(w.getPrediction())
+        return (roles, predictions)
 
     def getFrameElements(self) -> List[FrameElement]:
         return self.frameElements
@@ -269,6 +289,8 @@ class Sentence(object):
         for fe in self.frameElements:
             if fe.getName() == "LU":
                 return fe
+            else:
+                return None
 
 
 # A frame with data about the frame and example sentences

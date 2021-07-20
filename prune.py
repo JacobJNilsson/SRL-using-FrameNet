@@ -3,28 +3,30 @@ from data_struct import Frame, Sentence, TreeNode, FrameElement
 import copy
 
 # Remove sentences without LU
-# TODO Remove sentences with several LUs
 def pruneFaltySentences(frames: List[Frame]) -> None:
     for f in frames:
-        sentences = f.getSentences().copy()
+        sentences = f.getSentences()
         for s in sentences:
-            remove = True
-            fes = s.getFrameElements()
-            for fe in fes:
-                if fe.getName() == "LU":
-                    remove = False
-            if remove:
+            if s.getLU() == None:
                 f.removeSentence(s)
 
 
+def prune_sentences(sentences: List[Sentence]) -> List[TreeNode]:
+    all_unpruned_words = []
+    for sentence in sentences:
+        unpruned_words = prune(sentence)
+        all_unpruned_words.extend(unpruned_words)
+    return all_unpruned_words
+
+
 def pruneFromPredicate(predicates: List[TreeNode]) -> List[TreeNode]:
-    arguments = []
+    remaining_words = []
     for p in predicates:
         while p:
             children = p.getSubtrees()
             parent = p.getParent()
-            if parent and not parent in arguments and not parent in predicates:
-                arguments.append(parent)
+            if parent and not parent in remaining_words and not parent in predicates:
+                remaining_words.append(parent)
             for c in children:
                 role = c.getPos()
                 if (
@@ -33,45 +35,19 @@ def pruneFromPredicate(predicates: List[TreeNode]) -> List[TreeNode]:
                     and role != "MAD"
                     and role != "PUNCT"
                     and not c in predicates
-                    and not c in arguments
+                    and not c in remaining_words
                 ):
-                    arguments.append(c)
+                    remaining_words.append(c)
             p = parent
 
-    return arguments
-
-
-def pruneFromPredicatePreserveTree(n: TreeNode) -> TreeNode:
-    predicate = n
-    from_child = None
-    while n != None:
-        children = n.getSubtrees()
-
-        # THIS BREAKS SOMEHOW ????? CHILDREN ARE NOT A COPY!!!!
-        if from_child != None:
-            children.remove(from_child)
-
-        parent = n.getParent()
-        for c in children:
-            role = c.getPos()
-            # If Interpunktion the child is removed
-            if role == "MID" or role == "PAD" or role == "MAD":
-                n.removeChild(c)
-            # Else the child is wanted and its children are removed exept the node we walked from
-            else:
-                c.removeChildren()
-                # Re-add the child we walked from
-                # if from_child != None:
-                #     n.addSubtree(from_child)
-        from_child = n
-        n = parent
-
-    return predicate
+    return remaining_words
 
 
 # Basic pruning of a sentence
-def prune(sentence: Sentence) -> None:
+def prune(sentence: Sentence) -> List[TreeNode]:
     fe_lu = sentence.getLU()
+    if fe_lu == None:
+        return []  # This should not be needed, but is :(
     lu_range = fe_lu.getRange()
     lus = []
     for i in range(lu_range[0], lu_range[1] + 1):
@@ -79,8 +55,8 @@ def prune(sentence: Sentence) -> None:
 
     # Get the syntactic node
 
-    arguments = pruneFromPredicate(lus)
-    sentence.addArguments(arguments)
+    remaining_words = pruneFromPredicate(lus)
+    return remaining_words
 
 
 def pruneSentencesInFrame(frame: Frame) -> None:
