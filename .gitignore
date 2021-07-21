@@ -110,6 +110,7 @@ ENV/
 env.bak/
 venv.bak/
 spacy_syntax_parser/
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -130,3 +131,7 @@ dmypy.json
 
 # VSCode settings
 .vscode
+
+# generated directories and files
+run*
+spacy_parse.pkl

@@ -41,7 +41,7 @@ import numpy as np
 from helpers import save_to_file, timestamp, save_model, open_model
 from message import send_email
 
-
+############ Pipeline ############
 def pipeline(
     directory: str,
     frames: List[Frame],
@@ -59,48 +59,48 @@ def pipeline(
     (train_sentences, test_sentences) = split_data_train_test(frames)
 
     # Train models
-    id_clf, label_clf = train_models(train_sentences, extract_features)
+    id_clf, label_clf = train_models(train_sentences)
 
     # Save models
     save_model(id_clf, f"{parser_name}_identification_model", directory)
     save_model(label_clf, f"{parser_name}_labeling_model", directory)
 
     # Test models
-    evaluation = test_models(id_clf, label_clf, test_sentences, extract_features)
+    evaluation = test_models(id_clf, label_clf, test_sentences)
 
     # Save evaluation
     save_to_file(evaluation, f"{directory}/{parser_name}_evaluation")
 
     return evaluation
 
-
-def train_models(train_sentences, extract_features) -> tuple:
+############ Training ############
+def train_models(train_sentences) -> tuple:
 
     # Prune the train data set
     pruned_train_words = prune_sentences(train_sentences)
 
     # Train on pruned sentences
     id_clf = train_classifier(
-        pruned_train_words, extract_features, bool_result=True, prob=False
+        pruned_train_words, bool_result=True, prob=False
     )
     label_clf = train_classifier(
-        pruned_train_words, extract_features, bool_result=False, prob=True
+        pruned_train_words,  bool_result=False, prob=True
     )
 
     return (id_clf, label_clf)
 
-
-def test_models(id_clf, label_clf, test_sentences, extract_features):
+############ Testing ############
+def test_models(id_clf, label_clf, test_sentences):
     pruned_test_words = prune_sentences(test_sentences)
 
-    test_classifier(id_clf, pruned_test_words, extract_features, bool_result=True)
+    test_classifier(id_clf, pruned_test_words, bool_result=True)
 
     chosen_words = []
     for w in pruned_test_words:
-        if w.getPrediction == "1":
+        if w.getPrediction() == 1:
             chosen_words.append(w)
 
-    test_classifier(label_clf, chosen_words, extract_features, bool_result=True)
+    test_classifier(label_clf, chosen_words, bool_result=False)
 
     evaluation = evaluate_sentences(test_sentences)
 
@@ -154,9 +154,9 @@ def run_spacy(
     last_time = time.time()
 
     # Parse data
-    # spacy_frames = open_model("spacy_parse", ".")
-    spacy_frames = parse_spacy()
-    save_model(spacy_frames, "spacy_parse", ".")
+    spacy_frames = open_model("spacy_parse", ".")
+    # spacy_frames = parse_spacy()
+    # save_model(spacy_frames, "spacy_parse", ".")
 
     send_email(
         data_description,
@@ -179,17 +179,23 @@ def run_spacy(
     timestamp(last_time, "spaCy pipeline: ")
 
 
+############ Main ############
 def main():
     # Run variables
     start = time.time()
-    now = datetime.now()
-    dt_string = now.strftime("_%Y-%m-%d_%H-%M")
-    directory = "run" + dt_string
-    use_directory = "run_2021-07-15_19-56"
-    readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
     send_mail = True
+    pruning_test_data=True
     # Features of data to use
-    features = {
+    features = {"word",
+        "lemma",
+        "pos",
+        "deprel",
+        "frame",
+        "head_name",
+        "head_lemma",
+        "head_pos",}
+    filter = {"min_sentences": 6}
+    feats = [
         "word",
         "lemma",
         "pos",
@@ -197,36 +203,44 @@ def main():
         "frame",
         "head_name",
         "head_lemma",
-        "head_pos",
-    }
-    # Change this string to represent the data manipulation made
-    data_description = (
-        f"malt and spacy test, no list features. linearSVC. Time: {readable_time}"
-    )
+        "head_pos",]
+    for pruning_test_data in [True, False]:
+        for f in feats:
+            now = datetime.now()
+            dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
+            directory = "run" + dt_string
+            use_directory = "run_2021-07-15_19-56"
+            readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
+            features = {f}
+            # Change this string to represent the data manipulation made
+            data_description = (
+                f"linearSVC. {pruning_test_data=}. {features=}. Time: {readable_time}"
+            )
 
-    print(f"Run started at: {readable_time}")
-    send_email(
-        data_description,
-        f"New run started: {data_description} \nTime: {readable_time}\n",
-        "jacobjnilsson@gmail.com",
-        send_mail,
-    )
+            print(f"Run started at: {readable_time}")
+            send_email(
+                data_description,
+                f"New run started: {data_description} \nTime: {readable_time}\n",
+                "jacobjnilsson@gmail.com",
+                send_mail,
+            )
 
-    # C reate new run folder
-    try:
-        os.mkdir(directory)
-    except:
-        raise OSError("Unable to create directory")
+            # C reate new run folder
+            try:
+                os.mkdir(directory)
+            except:
+                raise OSError(f"Unable to create directory {directory}")
 
-    # Description of run
-    f = open(directory + "/run_description.txt", "a")
-    f.write(data_description)
-    f.close()
+            # Description of run
+            f = open(directory + "/run_description.txt", "a")
+            f.write(data_description)
+            f.close()
 
-    ######## RUNS ########
-    run_malt(data_description, directory, use_directory, features, send_mail=send_mail)
-    run_spacy(data_description, directory, use_directory, features, send_mail=send_mail)
+            ######## RUNS ########
+            run_malt(data_description, directory, use_directory, features, send_mail=send_mail)
+            run_spacy(data_description, directory, use_directory, features, send_mail=send_mail)
 
+    send_email("all tests compleate",":)","jacobjnilsson@gmail.com", send_email)
     timestamp(start, "Total time: ")
 
 

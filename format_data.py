@@ -104,7 +104,7 @@ def sentence_data(frames: List[Frame]) -> List[List[dict]]:
 
 def split_data_train_test(
     frames: List[Frame], train_ratio=0.8, random_state=0
-) -> tuple[List[Sentence], List[Sentence]]:
+) -> tuple:
     all_sentences = []
     for frame in frames:
         sentences = frame.getSentences()

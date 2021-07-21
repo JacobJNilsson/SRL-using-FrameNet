@@ -20,7 +20,6 @@ def parse(datafile="swefn.xml"):
     root = tree.getroot()
     lexicon = root.find("Lexicon")
     lexicalEntries = lexicon.findall("LexicalEntry")
-    # print(type(lexicon))
     frames = 0
     framesWithExample = 0
     totalExamples = 0
@@ -48,10 +47,6 @@ def parse(datafile="swefn.xml"):
             framesWithExample += 1
             totalExamples += examples
         print(sense.attrib["id"])
-        # for child in children:
-        # print(
-        #     child.tag, child.attrib
-        # )  # Make better print or don't print at all
         print("Examples:    " + str(examples))
         print("LUs:         " + str(lus))
         print("Core FEs:    " + str(coreFE))
@@ -275,7 +270,6 @@ def parse_sem(datafile="swefn.xml"):
                     i += number_of_words
                     sentence.addWords(text_list)
                     sentence.addFrameElement(fe)
-                    # print(fe)
             if sentence.getSentence() != []:
                 frame.addSentence(sentence)
         # Prune frames without example sentences
@@ -338,7 +332,6 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                 sentence_text += word.text
             sentence_text = sentence_text.lstrip()
             doc = nlp(sentence_text)
-            print(f"Parsing sentence: {sentence_text}")
 
             # Make a treenode for each word
             for token in doc:
