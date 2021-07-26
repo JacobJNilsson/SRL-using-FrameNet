@@ -282,6 +282,13 @@ def filter_roles_in_sentences(data: List[List[dict]], filter_list: list):
     return r
 
 
+def create_result_data(words, bool_result):
+    y_data = [w.getRole() for w in words]
+    if bool_result:
+        y_data = [0 if role == "None" else 1 for role in y_data]
+    return y_data
+
+
 def create_feature_data(words, features):
     # create feature data
     X_data = []
@@ -320,13 +327,6 @@ def create_feature_data(words, features):
     vec = DictVectorizer()
     X_data = vec.fit_transform(X_data).toarray()
     return X_data
-
-
-def create_result_data(words, bool_result):
-    y_data = [w.getRole() for w in words]
-    if bool_result:
-        y_data = [0 if role == "None" else 1 for role in y_data]
-    return y_data
 
 
 def create_feature_representation(frames: List[Frame], extract_features):
