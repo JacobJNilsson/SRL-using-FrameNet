@@ -335,16 +335,15 @@ def test_classifier(
 
     # Extract feature data
     X_data = [w.getFeatures() for w in words]
-    print(f"{X_data=}")
     y_data = create_result_data(words, bool_result)
     assert(len(X_data) == len(y_data))
 
     if bool_result:
-        print(f"testing identifier with {len(X_data)} datapoints")
+        # print(f"testing identifier with {len(X_data)} datapoints")
         with parallel_backend("threading", n_jobs=-1):
             predictions = clf.predict(X_data)
     else:
-        print(f"testing labeler with {len(X_data)} datapoints")
+        # print(f"testing labeler with {len(X_data)} datapoints")
         probabilities = clf.predict_proba(X_data)
         classes = np.unique(y_data)
         predictions = calc_predictions(classes, probabilities)

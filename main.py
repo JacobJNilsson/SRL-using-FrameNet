@@ -46,12 +46,20 @@ from message import send_email
 
 def pipeline(
     directory: str,
-    frames: List[Frame],
+    in_frames: List[Frame],
     parser_name: str,
     extract_features: set,
+    filter: dict,
     prune_test_data=True,
     log_data=False
 ):
+
+    frames = in_frames
+    # Filter frames
+    # for frame in in_frames:
+    #     add_frame = True
+    #     sentences = frame.getSentences()
+    #     if len(sentences) >
 
     # Add feature representation of each word to each word node
     create_feature_representation(frames, extract_features)
@@ -120,7 +128,7 @@ def test_models(id_clf, label_clf, test_sentences: List[Sentence], prune_test_da
     for sentence in test_sentences:
         words = sentence.getTreeNodesOrdered()
         for w in words:
-            prediction = int(w.getPrediction())
+            prediction = w.getPrediction()
             if prediction == 1:  # add the word to the list to be labeled
                 identified_words.append(w)
             else:  # set label of all words not identified as labels to "None"
@@ -142,6 +150,7 @@ def run_malt(
     directory,
     use_directory,
     extract_features,
+    filter,
     model=None,
     send_mail=False,
     prune_test_data=True,
@@ -160,7 +169,7 @@ def run_malt(
     )
 
     # Send the data to the pipeline
-    result = pipeline(directory, malt_frames, "malt", extract_features,
+    result = pipeline(directory, malt_frames, "malt", extract_features, filter,
                       log_data=log_data, prune_test_data=prune_test_data)
 
     # Present data
@@ -180,6 +189,7 @@ def run_spacy(
     directory,
     use_directory,
     extract_features,
+    filter,
     model=None,
     send_mail=True,
     prune_test_data=True,
@@ -200,7 +210,7 @@ def run_spacy(
     )
 
     # Send the data to the pipeline
-    result = pipeline(directory, spacy_frames, "spacy", extract_features,
+    result = pipeline(directory, spacy_frames, "spacy", extract_features, filter,
                       log_data=log_data, prune_test_data=prune_test_data)
 
     # Present data
@@ -234,14 +244,14 @@ def main():
     }
     filter = {"min_sentences": 6}
     feats = [
-        # "word",
-        # "lemma",
+        "word",
+        "lemma",
         "pos",
-        # "deprel",
-        # "frame",
-        # "head_name",
-        # "head_lemma",
-        # "head_pos",
+        "deprel",
+        "frame",
+        "head_name",
+        "head_lemma",
+        "head_pos",
     ]
     for pruning_test_data in [False, True]:
         for f in feats:
@@ -277,8 +287,9 @@ def main():
                 f.close()
 
             ######## RUNS ########
-            #run_malt(data_description, directory, use_directory, features, send_mail=send_mail, prune_test_data=pruning_test_data, log_data=log_data)
-            run_spacy(data_description, directory, use_directory, features,
+            run_malt(data_description, directory, use_directory, features, filter,
+                     send_mail=send_mail, prune_test_data=pruning_test_data, log_data=log_data)
+            run_spacy(data_description, directory, use_directory, features, filter,
                       send_mail=send_mail, prune_test_data=pruning_test_data, log_data=log_data)
 
     send_email("all tests compleate", ":)",

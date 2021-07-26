@@ -338,3 +338,16 @@ def create_feature_representation(frames: List[Frame], extract_features):
     features = create_feature_data(words, extract_features)
     for w, f in zip(words, features):
         w.addFeatures(f)
+
+
+def filter(frames: List[Frame], filter: dict):
+    r_frames = []
+    for frame in frames:
+        include = True
+        sentences = frame.getSentences()
+        if filter.__contains__("min_sentences"):
+            if len(sentences) < filter["min_sentences"]:
+                include = False
+        r_frames.append(frame)
+
+    return r_frames
