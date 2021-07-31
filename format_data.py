@@ -1,9 +1,14 @@
 from datetime import datetime
 from math import floor
 from typing import List
+
+from pandas.core import frame
 from data_struct import Frame, Sentence, TreeNode, FrameElement
 import copy
 from sklearn.feature_extraction import DictVectorizer
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
+import pandas as pd
 import ast
 import random
 
@@ -250,36 +255,14 @@ def booleanize_role(data):
     # Change role to "boolean" one or zero
     for d in data:
         role = d["arg_role"]
-        # print(role)
         if role != "None" and role != None:
             role = 1.0
         else:
             role = 0.0
-        # print(f"got role {role}\n")
         d["arg_role"] = role
     return data
 
 
-def filter_roles(data: List[dict], filter_list: list):
-    r = []
-    for d in data:
-        role = d["arg_role"]
-        if role != "None" and not role in filter_list and not role == "LU":
-            r.append(d)
-    return r
-
-
-def filter_roles_in_sentences(data: List[List[dict]], filter_list: list):
-    r = []
-    for s in data:
-        sentence = []
-        for d in s:
-            role = d["arg_role"]
-            if role != "None" and not role in filter_list:
-                sentence.append(d)
-        if sentence != []:
-            r.append(sentence)
-    return r
 
 
 def create_result_data(words, bool_result):
@@ -289,28 +272,29 @@ def create_result_data(words, bool_result):
     return y_data
 
 
-def create_feature_data(words, features):
+def create_feature_data(words: List[TreeNode], features):
     # create feature data
     X_data = []
     for word in words:
         w = {}
         head = word.getParent()
+        children = word.getSubtrees()
         if "word" in features:
             w["word"] = word.getWord()
         if "lemma" in features:
-            w[""] = word.getLemma()
+            w["lemma"] = word.getLemma()
         if "pos" in features:
             w["pos"] = word.getPos()
         if "deprel" in features:
             w["deprel"] = word.getDeprel()
         if "frame" in features:
             w["frame"] = word.getFrame().getName()
-        if "head_name" in features:
+        if "head_word" in features:
             if head != None:
                 head_word = head.getWord()
             else:
                 head_word = "None"
-            w["head_name"] = head_word
+            w["head_word"] = head_word
         if "head_lemma" in features:
             if head != None:
                 head_lemma = head.getLemma()
@@ -323,9 +307,31 @@ def create_feature_data(words, features):
             else:
                 head_pos = "None"
             w["head_pos"] = head_pos
+        if "child_words" in features:
+            child_words = []
+            for child in children:
+                child_words.append(child.getWord())
+            w["child_words"] = child_words
+        if "child_lemmas" in features:
+            child_lemmas = []
+            for child in children:
+                child_lemmas.extend(child.getLemma())
+            w["child_lemmas"] = child_lemmas
+        if "child_deprels" in features:
+            child_deprels = []
+            for child in children:
+                child_deprels.append(child.getDeprel())
+            w["child_deprels"] = child_deprels
+        if "child_pos" in features:
+            child_pos = []
+            for child in children:
+                child_pos.append(child.getPos())
+            w["child_pos"] = child_pos
         X_data.append(w)
-    vec = DictVectorizer()
-    X_data = vec.fit_transform(X_data).toarray()
+    # The dtype is set to np.bool_ since all features are 1 or 0
+    # This should change if the child features started counting occurances.
+    vec = DictVectorizer(dtype = np.bool_)
+    X_data = np.array(vec.fit_transform(X_data).toarray())
     return X_data
 
 
@@ -337,17 +343,9 @@ def create_feature_representation(frames: List[Frame], extract_features):
                 words.append(w)
     features = create_feature_data(words, extract_features)
     for w, f in zip(words, features):
+        # The actual change this function does 
         w.addFeatures(f)
+    # Returns a string for logging purposes
+    return f"Number of data points: {len(features)}\nNumber of features: {len(features[0])}"
 
 
-def filter(frames: List[Frame], filter: dict):
-    r_frames = []
-    for frame in frames:
-        include = True
-        sentences = frame.getSentences()
-        if filter.__contains__("min_sentences"):
-            if len(sentences) < filter["min_sentences"]:
-                include = False
-        r_frames.append(frame)
-
-    return r_frames

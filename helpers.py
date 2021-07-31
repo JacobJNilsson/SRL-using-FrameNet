@@ -35,6 +35,6 @@ def open_model(name, directory):
 
 
 def save_to_file(content, name_of_file: str = "temp.txt"):
-    f = open(name_of_file, "w")
+    f = open(name_of_file, "a")
     f.write(str(content))
     f.close()

@@ -7,7 +7,7 @@ class TreeNode(object):
     def __init__(
         self,
         word: str,  # Word
-        lemma: str,  # Word plain
+        lemma: list,  # Word plain
         pos: str,  # Word role
         deprel: str,  # Relationship with parent
         dephead: int = None,  # Parent position
@@ -175,9 +175,13 @@ class TreeNode(object):
                 child.addPrediction(prediction)
                 child.correctChildrenWith(role, prediction)
 
-    def correctChildren(self, prediction):
+    def correctChildren(self, prediction=None):
+        if prediction == None:
+            prediction = self.prediction
         self.correctChildrenWith(self.getRole(), prediction)
 
+    def cheat(self):
+        self.prediction = self.getRole()
 
 # A Frame element containing the type, its place in the sentence and "n"
 class FrameElement(object):
@@ -186,13 +190,13 @@ class FrameElement(object):
         self.range = range
 
     def __str__(self):
-        return self.name + " " + str(self.range)
+        return f"{self.name} {str(self.range)}"
 
-    def getName(self):
+    def getName(self) -> str:
         return self.name
 
     # Zero indexed
-    def getRange(self):
+    def getRange(self) -> tuple:
         return self.range
 
 
@@ -285,13 +289,23 @@ class Sentence(object):
             print(f"Index '{index}' out of bounds: {self.sentence}")
         return self.tree_nodes_ordered[index]
 
-    def getLU(self) -> FrameElement:
+    def getNodesInFrameElement(self, fe: FrameElement) -> List[TreeNode]:
+        fe_range = fe.getRange()
+        words = []
+        for i in range(fe_range[0], fe_range[1] + 1):
+            words.append(self.getNode(i))
+        return words
+
+    def getLUs(self) -> FrameElement:
+        lus = []
         for fe in self.frameElements:
             if fe.getName() == "LU":
-                return fe
-            else:
-                return None
+                lus.append(fe)
+        return lus
 
+    def cheat(self):
+        for word in self.tree_nodes_ordered:
+            word.cheat()
 
 # A frame with data about the frame and example sentences
 class Frame(object):
@@ -354,7 +368,9 @@ class Frame(object):
         self.name = name
 
     def removeSentence(self, sentence: Sentence) -> None:
-        self.sentences.remove(sentence)
+        for s in self.sentences:
+            if s.getSentence() == sentence.getSentence():
+                self.sentences.remove(s)
 
     def getName(self) -> str:
         return self.name
@@ -378,6 +394,10 @@ class Frame(object):
             and self.core_elements == frame.getCoreElements()
             and self.peripheral_elements == frame.getPeripheralElements()
         )
+
+    def cheat(self):
+        for sentence in self.sentences:
+            sentence.cheat()
 
 
 # A bad syntax tree printer

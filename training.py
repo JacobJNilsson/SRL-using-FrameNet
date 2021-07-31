@@ -12,7 +12,7 @@ from datetime import datetime
 import sys
 import os
 from joblib import parallel_backend
-
+from scipy.sparse import csr_matrix
 # from helpers import *
 
 
@@ -306,14 +306,24 @@ def train_classifier(
 ):
 
     # Extract feature data
-    X_data = [w.getFeatures() for w in words]
+    X_data = csr_matrix([w.getFeatures() for w in words])
     y_data = create_result_data(words, bool_result)
-    assert(len(X_data) == len(y_data))
+    print(f"{y_data[:20]=}")
+    # assert(len(X_data) == len(y_data))
+    assert(X_data.shape[0] == len(y_data))
+
+    # Check the distribution of y_data
+    occurance_class, max_class, avg = dist_max_avg(y_data)
+    ratio_string = f"Ratio between the most occuring and the avg: {occurance_class[max_class]/avg}"
+    if bool_result:
+        report = f"Report of the y_data distribution\nThe different classes occurances: {occurance_class}\n{ratio_string}"
+    else:
+        report = f"Report of the y_data distribution\nThe most occuring class: {max_class} {occurance_class[max_class]}\n{ratio_string}"
 
     # Create a classifier: a support vector classifier
     clf = svm.LinearSVC(
         C=c,
-        verbose=False,
+        verbose=True,
         random_state=1,
         max_iter=100000,
     )
@@ -324,11 +334,11 @@ def train_classifier(
     with parallel_backend("threading", n_jobs=-1):
         clf.fit(X_data, y_data)
 
-    return clf
+    return clf, report
 
 
 def test_classifier(
-    clf,
+    clf: svm.LinearSVC,
     words: List[TreeNode],
     bool_result: bool,
 ) -> str:
@@ -345,13 +355,18 @@ def test_classifier(
     else:
         # print(f"testing labeler with {len(X_data)} datapoints")
         probabilities = clf.predict_proba(X_data)
-        classes = np.unique(y_data)
-        predictions = calc_predictions(classes, probabilities)
+        # !Probably something wrong here!
+        predictions = calc_predictions(clf.classes_, probabilities)
 
     # Add the prediction to the word objects
     for word, prediction in zip(words, predictions):
         word.addPrediction(prediction)
-        word.correctChildren(prediction)
+        if not bool_result:
+            word.correctChildren(prediction)
+    # Classifier evaluation
+    evaluation = metrics.classification_report(
+        y_data, predictions, zero_division=1)
+    return evaluation
 
 
 def evaluate_sentences(sentences: List[Sentence]):
@@ -363,3 +378,24 @@ def evaluate_sentences(sentences: List[Sentence]):
         p.extend(predictions)
     evaluation = metrics.classification_report(y, p, zero_division=1)
     return evaluation
+
+
+def dist_max_avg(classes: list):
+    occurance_class = {}
+    for c in classes:
+        if c in occurance_class.keys():
+            occurance_class[c] += 1
+        else:
+            occurance_class[c] = 1
+    max_class = None
+    sum_max = 0
+    sum_all = 0
+    for k, sum_k in occurance_class.items():
+        sum_k = occurance_class[k]
+        sum_all += sum_k
+        if sum_k > sum_max:
+            sum_max = sum_k
+            max_class = k
+    avg = sum_all/len(occurance_class.keys())
+
+    return occurance_class, max_class, avg

@@ -133,5 +133,5 @@ dmypy.json
 .vscode
 
 # generated directories and files
-run*
+runs
 spacy_parse.pkl

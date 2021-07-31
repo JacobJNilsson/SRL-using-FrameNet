@@ -1,3 +1,4 @@
+from helpers import save_model
 import re
 import spacy
 import xml.etree.ElementTree as ET
@@ -138,7 +139,8 @@ def parse_syn_tree(datafile="swefn-ex.xml") -> List[Frame]:
         lexical_units = text.get("lexical_units_saldo").split("|")
         lexical_units = [e.lstrip() for e in lexical_units if e != ""]
         peripheral_elements = text.get("peripheral_elements").split("|")
-        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [e.lstrip()
+                               for e in peripheral_elements if e != ""]
         peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
         frame = Frame(
             name=text.get("frame"),
@@ -263,7 +265,8 @@ def parse_sem(datafile="swefn.xml"):
                     role = subelement.get("name") or "None"
                     role = pruneRoleName(role)
                     text_string = subelement.text or ""
-                    text_list = re.findall(r"\w+|[^\w\s]", text_string, re.UNICODE)
+                    text_list = re.findall(
+                        r"\w+|[^\w\s]", text_string, re.UNICODE)
                     number_of_words = len(text_list)
                     # Create Frame Element
                     fe = FrameElement(role, (i, i + number_of_words - 1))
@@ -279,24 +282,27 @@ def parse_sem(datafile="swefn.xml"):
 
 
 def custom_tokenizer(nlp):
-    prefix_re = re.compile(r"""^[\[\($€¥£"']""")
-    suffix_re = re.compile(r"""[\]\).,:;!?"']$""")
-    infix_re = re.compile(r"""[-~=+_^*:]""")
-    return st.Tokenizer(
+    # prefix_re = re.compile(r"""^[\[\($€¥£"']""")
+    # suffix_re = re.compile(r"""[\]\).,:;!?"']$""")
+    suffix_re = re.compile(r"""[:;!?"']$""")
+    infix_re = re.compile(r"""[=+^*]""")
+    tokenizer = st.Tokenizer(
         nlp.vocab,
-        prefix_search=prefix_re.search,
-        suffix_search=suffix_re.search,
-        infix_finditer=infix_re.finditer,
+        # prefix_search=prefix_re.search,
+        # suffix_search=suffix_re.search,
+        # infix_finditer=infix_re.finditer,
     )
+    return tokenizer
 
 
 def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
     nlp = spacy.load("sv_pipeline")
-    # Added custom tokenizer for recognizing math operands as seperate tokens ("1+2" -> "1", "+", "2")
+    # Added custom tokenizer for recognizing math operands as seperate tokens ("1+2" -> "1", "+", "2") and for other parsing issues
     nlp.tokenizer = custom_tokenizer(nlp)
     frames = []
     syn_tree = ET.parse(datafile)
     syn_root = syn_tree.getroot()
+    no_parsed_sentences = 0
 
     # Each frame
     for text in syn_root:
@@ -306,7 +312,8 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
         lexical_units = text.get("lexical_units_saldo").split("|")
         lexical_units = [e.lstrip() for e in lexical_units if e != ""]
         peripheral_elements = text.get("peripheral_elements").split("|")
-        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [e.lstrip()
+                               for e in peripheral_elements if e != ""]
         peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
         frame = Frame(
             name=text.get("frame"),
@@ -325,15 +332,20 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
 
             # Create the sentence as plaintext
             sentence_text = ""
+            no_words = 0
             for word in words:
                 pos = word.get("pos")
-                if pos != "MAD" and pos != "MID" and pos != "PAD":  # PUNCT?
-                    sentence_text += " "
+                word_text = word.text
+                # if not word_text in [".", ","]:
+                sentence_text += " "
                 sentence_text += word.text
+                no_words += 1
             sentence_text = sentence_text.lstrip()
             doc = nlp(sentence_text)
 
             # Make a treenode for each word
+            no_treenodes = 0
+            sentence_list = []
             for token in doc:
                 deprel = token.dep_
                 if deprel == "Root":
@@ -358,6 +370,14 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                 sentence.addWord(word_node, placement)
                 if deprel == "ROOT":
                     root = word_node
+                no_treenodes += 1
+                sentence_list.append(token.text)
+
+            # something is wrong, throw an exception
+            if not no_words == no_treenodes:
+                message = f"Sentence \"{sentence_text}\" is badly formed\nTokenized sentence: {sentence_list}\nNumber of sentences parsed successfully: {no_parsed_sentences}"
+                raise ValueError(message)
+
             # Connect each treenode to its head treenode
             for ref in subtrees:
                 word = subtrees[ref]
@@ -374,6 +394,7 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
             if root != None:
                 sentence.addSynRoot(root)
                 frame.addSentence(sentence)
+                no_parsed_sentences += 1
 
             # Add the frame elements to the sentence
             for fe in frame_elements:
@@ -407,7 +428,8 @@ def parse_malt(datafile="swefn-ex.xml") -> List[Frame]:
         lexical_units = text.get("lexical_units_saldo").split("|")
         lexical_units = [e.lstrip() for e in lexical_units if e != ""]
         peripheral_elements = text.get("peripheral_elements").split("|")
-        peripheral_elements = [e.lstrip() for e in peripheral_elements if e != ""]
+        peripheral_elements = [e.lstrip()
+                               for e in peripheral_elements if e != ""]
         peripheral_elements = [pruneRoleName(r) for r in peripheral_elements]
         frame = Frame(
             name=text.get("frame"),
@@ -571,7 +593,8 @@ def combineFrames(frame_a: Frame, frame_b: Frame) -> Frame:
         print(frame_b.getPeripheralElements())
         print()
 
-    sentences = combineSentences(frame_a.getSentences(), frame_b.getSentences())
+    sentences = combineSentences(
+        frame_a.getSentences(), frame_b.getSentences())
     return Frame(
         name=name,
         lexical_units=lexical_units,

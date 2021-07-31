@@ -4,7 +4,9 @@ from email.message import EmailMessage
 
 def send_email(subject, body, to, send=True):
     if not send:
+        print(body)
         return
+    print(body)
     user = "dogg.bott1@gmail.com"
     password = "lqhqbwbkpurtnjuj"
 
