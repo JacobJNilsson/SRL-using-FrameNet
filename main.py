@@ -85,7 +85,7 @@ def pipeline(
 
     # Test models
     (id_evaluation, label_evaluation, evaluation) = test_models(
-        id_clf, label_clf, test_sentences, prune_test_data=prune_test_data)
+        id_clf, label_clf, test_sentences, filter, prune_test_data=prune_test_data)
     print(f"Models tested")
     if log_data:
         # Save evaluation
@@ -106,21 +106,20 @@ def pipeline(
 def train_models(train_sentences, filter) -> tuple:
 
     # Prune the train data set
-    pruned_train_words = prune_sentences(train_sentences, filter)
-    # pruned_train_words = prune_sentences_keep_role(train_sentences)
-    no_data_points_identifier = f"Number of datapoints at training identifier: {len(pruned_train_words)}"
+    train_words = prune_sentences(train_sentences, filter)
+    no_data_points_identifier = f"Number of datapoints at training identifier: {len(train_words)}"
     print(no_data_points_identifier)
     # Train on pruned sentences
     id_clf, id_report = train_classifier(
-        pruned_train_words, bool_result=True, prob=False
+        train_words, bool_result=True, prob=False
     )
     # Take a small break
-    no_data_points_labeler = f"Number of datapoints at training labeler: {len(pruned_train_words)}"
+    no_data_points_labeler = f"Number of datapoints at training labeler: {len(train_words)}"
     print(f"Taking 5 between training")
     time.sleep(5)
-    #words = filter_for_train_classifier()
+    #words = filter_for_training_classifier(words)
     label_clf, label_report = train_classifier(
-        pruned_train_words,  bool_result=False, prob=True
+        train_words,  bool_result=False, prob=True
     )
 
     return id_clf, label_clf, f"{id_report}\n{label_report}"
@@ -128,9 +127,10 @@ def train_models(train_sentences, filter) -> tuple:
 ############ Testing ############
 
 
-def test_models(id_clf, label_clf, test_sentences: List[Sentence], prune_test_data=True):
+def test_models(id_clf, label_clf, test_sentences: List[Sentence], filter, prune_test_data=True):
     if prune_test_data:
-        test_words = prune_sentences(test_sentences)
+        filter["prune"] = 0
+        test_words = prune_sentences(test_sentences, filter)
     else:
         test_words = []
         for sentence in test_sentences:
@@ -155,10 +155,11 @@ def test_models(id_clf, label_clf, test_sentences: List[Sentence], prune_test_da
     print(
         f"Identification compleate\nNumber of data points for labeling: {len(identified_words)}")
 
-    label_evaluation = "No words labeled"
     if len(identified_words) > 0:
         label_evaluation = test_classifier(
             label_clf, identified_words, bool_result=False)
+    else:
+        label_evaluation = "No words labeled"
 
     # Evaluation of the compleate pipeline
     evaluation = evaluate_sentences(test_sentences)
@@ -315,6 +316,7 @@ def main():
     send_email("Tests compleate", ":)",
                email_address, send_mail)
     timestamp(start, "Total time: ")
+    quit()
 
 
 # set these for outputs
