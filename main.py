@@ -333,20 +333,20 @@ def main():
     # Features of data to use
     features = {
         "frame",
-        "core_elements"
+        "core_elements",
         "word",
         "lemma",
         "pos",
         "deprel",
-        "ref"
-        "head_word",
-        "head_lemma",
-        "head_deprel"
-        "head_pos",
-        "child_word",
-        "child_lemmas",
-        "child_deprels",
-        "child_pos",
+        "ref",
+        # "head_word",
+        # "head_lemma",
+        # "head_deprel"
+        # "head_pos",
+        # "child_word",
+        # "child_lemmas",
+        # "child_deprels",
+        # "child_pos",
     }
 
     if not os.path.isfile('spacy_parse.pkl'):
@@ -370,7 +370,7 @@ def main():
     directory = f"runs/run{dt_string}"
     readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
     data_description = (
-        f"Testing using all sentences in training and testing. linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+        f"Testing without parser (no dependency features). linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
     )
 
     if log_data:
@@ -392,8 +392,8 @@ def main():
         send_mail,
     )
 
-    # run_malt(data_description, directory, features, filter,
-    #          prune_test_data = pruning_test_data)
+    run_malt(data_description, directory, features, filter,
+             prune_test_data=pruning_test_data)
     run_spacy(data_description, directory, features, filter,
               prune_test_data=pruning_test_data)
     send_email("Finished runs", "Tests compleate :)",
