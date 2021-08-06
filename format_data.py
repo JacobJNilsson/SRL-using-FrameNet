@@ -263,8 +263,6 @@ def booleanize_role(data):
     return data
 
 
-
-
 def create_result_data(words, bool_result):
     y_data = [w.getRole() for w in words]
     if bool_result:
@@ -287,8 +285,12 @@ def create_feature_data(words: List[TreeNode], features):
             w["pos"] = word.getPos()
         if "deprel" in features:
             w["deprel"] = word.getDeprel()
+        if "ref" in features:
+            w["ref"] = word.getRef()
         if "frame" in features:
             w["frame"] = word.getFrame().getName()
+        if "core_elements" in features:
+            w["core_elements"] = word.getFrame().getCoreElements()
         if "head_word" in features:
             if head != None:
                 head_word = head.getWord()
@@ -330,7 +332,7 @@ def create_feature_data(words: List[TreeNode], features):
         X_data.append(w)
     # The dtype is set to np.bool_ since all features are 1 or 0
     # This should change if the child features started counting occurances.
-    vec = DictVectorizer(dtype = np.bool_)
+    vec = DictVectorizer(dtype=np.bool_)
     X_data = np.array(vec.fit_transform(X_data).toarray())
     return X_data
 
@@ -343,9 +345,7 @@ def create_feature_representation(frames: List[Frame], extract_features):
                 words.append(w)
     features = create_feature_data(words, extract_features)
     for w, f in zip(words, features):
-        # The actual change this function does 
+        # The actual change this function does
         w.addFeatures(f)
     # Returns a string for logging purposes
     return f"Number of data points: {len(features)}\nNumber of features: {len(features[0])}"
-
-

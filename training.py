@@ -314,6 +314,7 @@ def train_classifier(
 
     # Check the distribution of y_data
     occurance_class, max_class, avg = dist_max_avg(y_data)
+    ratio = occurance_class[max_class]/avg
     ratio_string = f"Ratio between the most occuring and the avg: {occurance_class[max_class]/avg}"
     if bool_result:
         report = f"Report of the y_data distribution\nThe different classes occurances: {occurance_class}\n{ratio_string}"
@@ -323,7 +324,7 @@ def train_classifier(
     # Create a classifier: a support vector classifier
     clf = svm.LinearSVC(
         C=c,
-        verbose=True,
+        verbose=False,
         random_state=1,
         max_iter=100000,
     )

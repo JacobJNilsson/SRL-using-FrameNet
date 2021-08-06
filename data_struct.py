@@ -3,6 +3,8 @@ from typing import List
 import copy
 
 # Syntax tree with data
+
+
 class TreeNode(object):
     def __init__(
         self,
@@ -184,6 +186,8 @@ class TreeNode(object):
         self.prediction = self.getRole()
 
 # A Frame element containing the type, its place in the sentence and "n"
+
+
 class FrameElement(object):
     def __init__(self, name, range=(0, 0)):
         self.name = name
@@ -308,6 +312,8 @@ class Sentence(object):
             word.cheat()
 
 # A frame with data about the frame and example sentences
+
+
 class Frame(object):
     def __init__(
         self,
@@ -359,7 +365,8 @@ class Frame(object):
         self.core_elements = self.core_elements + [core_element]
 
     def addPeripheralElement(self, peripheral_element: str) -> None:
-        self.peripheral_elements = self.peripheral_elements + [peripheral_element]
+        self.peripheral_elements = self.peripheral_elements + \
+            [peripheral_element]
 
     def addSentence(self, sentence: Sentence) -> None:
         self.sentences = self.sentences + [sentence]

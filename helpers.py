@@ -38,3 +38,9 @@ def save_to_file(content, name_of_file: str = "temp.txt"):
     f = open(name_of_file, "a")
     f.write(str(content))
     f.close()
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]

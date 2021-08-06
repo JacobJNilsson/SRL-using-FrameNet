@@ -39,7 +39,7 @@ from training import (
 )
 import time
 import numpy as np
-from helpers import save_to_file, timestamp, save_model, open_model
+from helpers import save_to_file, timestamp, save_model, open_model, chunks
 from message import send_email
 
 ############ Pipeline ############
@@ -70,21 +70,38 @@ def pipeline(
 
     # Split data into training and test sets
     (train_sentences, test_sentences) = split_data_train_test(frames)
+
+    # # For testing purpose
+    # sentences = []
+    # for frame in frames:
+    #     sentences.extend(frame.getSentences())
+    # (train_sentences, test_sentences) = (sentences, sentences)
+
     no_sentences = f"Number of sentences: {len(train_sentences) + len(test_sentences)}"
     print(no_sentences)
     print(no_data_points_features)
 
     # Train models
-    id_clf, label_clf, report_training = train_models(train_sentences, filter)
+    id_clf, label_clf, report_training = train_models_2(
+        train_sentences, filter)
 
     print(f"{report_training}")
     if log_data:
+        model_path = f"{directory}/models"
+        if not os.path.isdir(model_path):
+            # Create model folder
+            try:
+                os.mkdir(f"{model_path}")
+            except:
+                raise OSError(f"Unable to create directory {model_path}")
         # Save models
-        save_model(id_clf, f"{parser_name}_identification_model", directory)
-        save_model(label_clf, f"{parser_name}_labeling_model", directory)
+        save_model(
+            id_clf, f"{parser_name}_identification_model", f"{model_path}")
+        save_model(
+            label_clf, f"{parser_name}_labeling_model", f"{model_path}")
 
     # Test models
-    (id_evaluation, label_evaluation, evaluation) = test_models(
+    (id_evaluation, label_evaluation, evaluation) = test_models_2(
         id_clf, label_clf, test_sentences, filter, prune_test_data=prune_test_data)
     print(f"Models tested")
     if log_data:
@@ -106,24 +123,57 @@ def pipeline(
 def train_models(train_sentences, filter) -> tuple:
 
     # Prune the train data set
-    train_words = prune_sentences(train_sentences, filter)
-    no_data_points_identifier = f"Number of datapoints at training identifier: {len(train_words)}"
-    print(no_data_points_identifier)
+    train_words = prune_sentences(train_sentences, filter, balance=False)
+
     # Train on pruned sentences
+    print(f"Number of datapoints at training identifier: {len(train_words)}")
     id_clf, id_report = train_classifier(
         train_words, bool_result=True, prob=False
     )
-    # Take a small break
-    no_data_points_labeler = f"Number of datapoints at training labeler: {len(train_words)}"
-    print(f"Taking 5 between training")
-    time.sleep(5)
-    #words = filter_for_training_classifier(words)
+
+    train_words = prune_sentences(train_sentences, filter, balance=False)
+
+    print(f"Number of datapoints at training labeler: {len(train_words)}")
     label_clf, label_report = train_classifier(
         train_words,  bool_result=False, prob=True
     )
 
     return id_clf, label_clf, f"{id_report}\n{label_report}"
 
+
+def train_models_2(train_sentences, filter) -> tuple:
+
+    # Prune the train data set
+    train_words = prune_sentences(train_sentences, filter, balance=False)
+
+    # Train on pruned sentences
+    print(f"Number of datapoints at training identifier: {len(train_words)}")
+    id_clf, id_report = train_classifier(
+        train_words, bool_result=True, prob=False
+    )
+
+    # # Filter the words using the identification classifier similarly to testing
+    # for chunk in chunks(train_words, 4):
+    #     test_classifier(id_clf, chunk, bool_result=True)
+    # train_words = []
+    # for sentence in train_sentences:
+    #     words = sentence.getTreeNodesOrdered()
+    #     for w in words:
+    #         prediction = w.getPrediction()
+    #         if prediction == 1:
+    #             # add the word to the list to be labeled
+    #             train_words.append(w)
+
+    tmp_filter = filter
+    tmp_filter["prune"] = 2
+    train_words = prune_sentences(train_sentences, tmp_filter, balance=False)
+
+    print(f"Number of datapoints at training labeler: {len(train_words)}")
+    label_clf, label_report = train_classifier(
+        train_words,  bool_result=False, prob=True
+    )
+
+    return id_clf, label_clf, f"{id_report}\n{label_report}"
 ############ Testing ############
 
 
@@ -167,19 +217,52 @@ def test_models(id_clf, label_clf, test_sentences: List[Sentence], filter, prune
     return (id_evaluation, label_evaluation, evaluation)
 
 
+def test_models_2(id_clf, label_clf, test_sentences: List[Sentence], filter, prune_test_data=True):
+    if prune_test_data:
+        test_words = prune_sentences(test_sentences, filter)
+    else:
+        test_words = []
+        for sentence in test_sentences:
+            words = sentence.getTreeNodesOrdered()
+            test_words.extend(words)
+    print(f"Number of data points for identification: {len(test_words)}")
+
+    id_evaluation = test_classifier(id_clf, test_words, bool_result=True)
+
+    # Add identified words to the labeling test set
+    tmp_filter = filter
+    tmp_filter["prune"] = 2
+    argument_words = prune_sentences(test_sentences, tmp_filter)
+
+    print(
+        f"Identification compleate\nNumber of data points for labeling: {len(argument_words)}")
+
+    if len(argument_words) > 0:
+        label_evaluation = test_classifier(
+            label_clf, argument_words, bool_result=False)
+    else:
+        label_evaluation = "No words labeled"
+
+    # Evaluation of the compleate pipeline
+    evaluation = "The totat evaluation is not applicable with these tests"
+
+    return (id_evaluation, label_evaluation, evaluation)
+
 ############ Malt ############
+
+
 def run_malt(
     data_description,
     directory,
     extract_features,
     filter,
     model=None,
-    prune_test_data=True,
+    prune_test_data=False,
 ):
     last_time = time.time()
 
     send_email(
-        data_description,
+        directory,
         f"Starting pipeline for data parsed with Maltparser",
         email_address,
         send_mail,
@@ -193,7 +276,7 @@ def run_malt(
                       log_data=log_data, prune_test_data=prune_test_data)
     # Present data
     send_email(
-        data_description,
+        directory,
         f"Pipeline for data parsed with Maltparser compleate. \nResult:\n{result}",
         email_address,
         send_mail,
@@ -208,7 +291,7 @@ def run_spacy(
     extract_features,
     filter,
     model=None,
-    prune_test_data=True,
+    prune_test_data=False,
 ):
     last_time = time.time()
 
@@ -218,7 +301,7 @@ def run_spacy(
     for frame in spacy_frames:
         sentences.extend(frame.getSentences())
     send_email(
-        data_description,
+        directory,
         f"Starting pipeline for data parsed with spaCy",
         email_address,
         send_mail,
@@ -230,7 +313,7 @@ def run_spacy(
 
     # Present data
     send_email(
-        data_description,
+        directory,
         f"Pipeline for data parsed with spaCy compleate. \nResult:\n{result}",
         email_address,
         send_mail,
@@ -241,19 +324,21 @@ def run_spacy(
 ############ Main ############
 def main():
     start = time.time()
-    # Run variables
+    ##### Run variables #####
     # If the data should be pruned as a part of the evaluation
     pruning_test_data = True
     # Filter the data used in both training and testing
-    filter = {"min_sentences": 0, "min_role_occurance": 12,
+    filter = {"min_sentences": 0, "min_role_occurance": 6,
               "prune": 1}
     # Features of data to use
     features = {
         "frame",
+        "core_elements"
         "word",
         "lemma",
         "pos",
         "deprel",
+        "ref"
         "head_word",
         "head_lemma",
         "head_deprel"
@@ -268,52 +353,50 @@ def main():
         try:
             frames = parse_spacy()
             save_model(frames, "spacy_parse", ".")
-            send_email("Parsed spaCy", f"Finished parsing spaCy and saved to model",
+            send_email("Parsing spaCy", f"Finished parsing spaCy and saved to model",
                        email_address,
-                       send_email)
+                       send_mail)
         except Exception as err:
-            send_email(data_description, f"Error when parsing spaCy\n{str(err)}",
+            send_email("Parsing spaCy", f"Error when parsing spaCy\n{str(err)}",
                        email_address,
-                       send_email)
+                       send_mail)
             quit()
 
     ######## RUNS ########
-    for i in [None, 0, 1]:
-        filter["prune"] = i
 
-        # Change this string to represent the data manipulation made
-        now = datetime.now()
-        dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
-        directory = f"runs/run {dt_string}"
-        readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
-        data_description = (
-            f"linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}"
-        )
+    # Change this string to represent the data manipulation made
+    now = datetime.now()
+    dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
+    directory = f"runs/run{dt_string}"
+    readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
+    data_description = (
+        f"Testing using all sentences in training and testing. linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+    )
 
-        if log_data:
-            # C reate new run folder
-            try:
-                os.mkdir(directory)
-            except:
-                raise OSError(f"Unable to create directory {directory}")
+    if log_data:
+        # Create new run folder
+        try:
+            os.mkdir(directory)
+        except:
+            raise OSError(f"Unable to create directory {directory}")
 
-        # Description of run
-        f = open(directory + "/run_description.txt", "a")
-        f.write(data_description)
-        f.close()
+    # Description of run
+    f = open(directory + "/run_description.txt", "a")
+    f.write(data_description)
+    f.close()
 
-        send_email(
-            data_description,
-            f"New run started: {data_description} \nTime: {readable_time}\n",
-            email_address,
-            send_mail,
-        )
+    send_email(
+        directory,
+        f"New run started: \n{data_description}\n",
+        email_address,
+        send_mail,
+    )
 
-        run_malt(data_description, directory, features, filter,
-                 prune_test_data=pruning_test_data)
-        run_spacy(data_description, directory, features, filter,
-                  prune_test_data=pruning_test_data)
-    send_email("Tests compleate", ":)",
+    # run_malt(data_description, directory, features, filter,
+    #          prune_test_data = pruning_test_data)
+    run_spacy(data_description, directory, features, filter,
+              prune_test_data=pruning_test_data)
+    send_email("Finished runs", "Tests compleate :)",
                email_address, send_mail)
     timestamp(start, "Total time: ")
     quit()

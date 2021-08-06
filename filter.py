@@ -17,29 +17,55 @@ def filter_faulty_sentences(frames: List[Frame]) -> None:
 
 
 # Prunes the sentences and returns the words chosen for data set
-def prune_sentences(sentences: List[Sentence], filter: dict) -> List[TreeNode]:
+def prune_sentences(sentences: List[Sentence], filter: dict, balance: bool = False) -> List[TreeNode]:
+    role_words = []
+    none_role_words = []
+    roles = set()
     r_words = []
-    for sentence in sentences:
-        if "prune" in filter.keys():
-            prune_method = filter["prune"]
-            if prune_method == 0:
+
+    prune_method = filter["prune"]
+
+    if "prune" in filter.keys():
+        if prune_method == 0:
+            for sentence in sentences:
                 unpruned_words = prune(sentence)
                 r_words.extend(unpruned_words)
-            elif prune_method == 1:
+        elif prune_method == 1:
+            for sentence in sentences:
                 fes = sentence.getFrameElements()
                 for fe in fes:
                     words_with_role = sentence.getNodesInFrameElement(fe)
-                    r_words.extend(words_with_role)
+                    for role_word in words_with_role:
+                        roles.add(role_word.getRole())
+                    role_words.extend(words_with_role)
                     lus = []
                     if fe.getName() == "LU":
                         lus.extend(words_with_role)
                     words_without_role = prune_from_predicates(
                         lus, no_role=True)
-                    r_words.extend(words_without_role)
-            else:
-                r_words.extend(sentence.getTreeNodesOrdered())
+                    none_role_words.extend(words_without_role)
+        elif prune_method == 2:
+            for sentence in sentences:
+                fes = sentence.getFrameElements()
+                for fe in fes:
+                    words_with_role = sentence.getNodesInFrameElement(fe)
+                    r_words.extend(words_with_role)
         else:
+            for sentence in sentences:
+                r_words.extend(sentence.getTreeNodesOrdered())
+    else:
+        for sentence in sentences:
             r_words.extend(sentence.getTreeNodesOrdered())
+
+    if prune_method == 1:
+        r_words.extend(role_words)
+        if balance:
+            avg_role_occurance = len(role_words)/len(roles)
+            for i in range(0, len(none_role_words) - 1, int(len(none_role_words)/(avg_role_occurance*100))):
+                r_words.append(none_role_words[i])
+        else:
+            r_words.extend(none_role_words)
+
     return r_words
 
 
