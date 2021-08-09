@@ -50,10 +50,11 @@ def pipeline(
     frames: List[Frame],
     parser_name: str,
     extract_features: set,
-    filter: dict,
+    filter_: dict,
     prune_test_data=True,
     log_data=False
 ):
+    filter = filter_.copy()
     # Prune sentences without an LU from the frames
     # TODO: log no. sentences pruned
     filter_faulty_sentences(frames)
@@ -80,6 +81,8 @@ def pipeline(
     no_sentences = f"Number of sentences: {len(train_sentences) + len(test_sentences)}"
     print(no_sentences)
     print(no_data_points_features)
+
+    filter = filter.copy()
 
     # Train models
     id_clf, label_clf, report_training = train_models_2(
@@ -164,9 +167,9 @@ def train_models_2(train_sentences, filter) -> tuple:
     #             # add the word to the list to be labeled
     #             train_words.append(w)
 
-    tmp_filter = filter
-    tmp_filter["prune"] = 2
-    train_words = prune_sentences(train_sentences, tmp_filter, balance=False)
+
+    filter["prune"] = 2
+    train_words = prune_sentences(train_sentences, filter, balance=False)
 
     print(f"Number of datapoints at training labeler: {len(train_words)}")
     label_clf, label_report = train_classifier(
@@ -230,9 +233,9 @@ def test_models_2(id_clf, label_clf, test_sentences: List[Sentence], filter, pru
     id_evaluation = test_classifier(id_clf, test_words, bool_result=True)
 
     # Add identified words to the labeling test set
-    tmp_filter = filter
-    tmp_filter["prune"] = 2
-    argument_words = prune_sentences(test_sentences, tmp_filter)
+
+    filter["prune"] = 2
+    argument_words = prune_sentences(test_sentences, filter)
 
     print(
         f"Identification compleate\nNumber of data points for labeling: {len(argument_words)}")
