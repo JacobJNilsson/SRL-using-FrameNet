@@ -339,14 +339,14 @@ def main():
         "pos",
         "deprel",
         "ref",
-        # "head_word",
-        # "head_lemma",
-        # "head_deprel"
-        # "head_pos",
-        # "child_word",
-        # "child_lemmas",
-        # "child_deprels",
-        # "child_pos",
+        "head_word",
+        "head_lemma",
+        "head_deprel"
+        "head_pos",
+        "child_word",
+        "child_lemmas",
+        "child_deprels",
+        "child_pos",
     }
 
     if not os.path.isfile('spacy_parse.pkl'):
@@ -370,7 +370,7 @@ def main():
     directory = f"runs/run{dt_string}"
     readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
     data_description = (
-        f"Testing without parser (no dependency features). linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+        f"Testing with parser (dependency features). linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
     )
 
     if log_data:
