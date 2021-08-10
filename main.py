@@ -333,7 +333,7 @@ def main():
     filter = {"min_sentences": 0, "min_role_occurance": 6,
               "prune": 1}
     # Features of data to use
-    features_ = {
+    features = {
         "frame",
         "core_elements",
         "word",
@@ -365,40 +365,40 @@ def main():
             quit()
 
     ######## RUNS ########
-    for feature in features_:
-        features = {feature}
-        # Change this string to represent the data manipulation made
-        now = datetime.now()
-        dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
-        directory = f"runs/run{dt_string}"
-        readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
-        data_description = (
-            f"Testing individual feature. linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
-        )
+    # for feature in features_:
+    #     features = {feature}
+    # Change this string to represent the data manipulation made
+    now = datetime.now()
+    dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
+    directory = f"runs/run{dt_string}"
+    readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
+    data_description = (
+        f"Testing good guess, all features. linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+    )
 
-        if log_data:
-            # Create new run folder
-            try:
-                os.mkdir(directory)
-            except:
-                raise OSError(f"Unable to create directory {directory}")
+    if log_data:
+        # Create new run folder
+        try:
+            os.mkdir(directory)
+        except:
+            raise OSError(f"Unable to create directory {directory}")
 
-        # Description of run
-        f = open(directory + "/run_description.txt", "a")
-        f.write(data_description)
-        f.close()
+    # Description of run
+    f = open(directory + "/run_description.txt", "a")
+    f.write(data_description)
+    f.close()
 
-        send_email(
-            directory,
-            f"New run started: \n{data_description}\n",
-            email_address,
-            send_mail,
-        )
+    send_email(
+        directory,
+        f"New run started: \n{data_description}\n",
+        email_address,
+        send_mail,
+    )
 
-        run_malt(data_description, directory, features, filter,
-                 prune_test_data=pruning_test_data)
-        run_spacy(data_description, directory, features, filter,
-                  prune_test_data=pruning_test_data)
+    run_malt(data_description, directory, features, filter,
+             prune_test_data=pruning_test_data)
+    run_spacy(data_description, directory, features, filter,
+              prune_test_data=pruning_test_data)
 
     send_email("Finished runs", "Tests compleate :)",
                email_address, send_mail)

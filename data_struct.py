@@ -376,7 +376,7 @@ class Frame(object):
 
     def removeSentence(self, sentence: Sentence) -> None:
         for s in self.sentences:
-            if s.getSentence() == sentence.getSentence():
+            if str(s.getSentence()) == str(sentence.getSentence()):
                 self.sentences.remove(s)
 
     def getName(self) -> str:

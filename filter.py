@@ -26,30 +26,39 @@ def prune_sentences(sentences: List[Sentence], filter: dict, balance: bool = Fal
     prune_method = filter["prune"]
 
     if "prune" in filter.keys():
+
+        # Prunes the sentence by the classical method
         if prune_method == 0:
             for sentence in sentences:
                 unpruned_words = prune(sentence)
                 r_words.extend(unpruned_words)
+
+        # This method prunes the sentence the same way as previous but includes all words in all roles
         elif prune_method == 1:
             for sentence in sentences:
                 fes = sentence.getFrameElements()
+                lus = []
                 for fe in fes:
-                    words_with_role = sentence.getNodesInFrameElement(fe)
-                    for role_word in words_with_role:
-                        roles.add(role_word.getRole())
-                    role_words.extend(words_with_role)
-                    lus = []
-                    if fe.getName() == "LU":
+                    if fe.getName() != "LU":
+                        words_with_role = sentence.getNodesInFrameElement(fe)
+                        for role_word in words_with_role:
+                            roles.add(role_word.getRole())
+                        role_words.extend(words_with_role)
+
+                    else:
                         lus.extend(words_with_role)
-                    words_without_role = prune_from_predicates(
-                        lus, no_role=True)
-                    none_role_words.extend(words_without_role)
+                words_without_role = prune_from_predicates(
+                    lus, no_role=True)
+                none_role_words.extend(words_without_role)
+
+        # This method returns all words in roles and no more
         elif prune_method == 2:
             for sentence in sentences:
                 fes = sentence.getFrameElements()
                 for fe in fes:
-                    words_with_role = sentence.getNodesInFrameElement(fe)
-                    r_words.extend(words_with_role)
+                    if fe.getName() != "LU":
+                        words_with_role = sentence.getNodesInFrameElement(fe)
+                        r_words.extend(words_with_role)
         else:
             for sentence in sentences:
                 r_words.extend(sentence.getTreeNodesOrdered())
@@ -57,6 +66,7 @@ def prune_sentences(sentences: List[Sentence], filter: dict, balance: bool = Fal
         for sentence in sentences:
             r_words.extend(sentence.getTreeNodesOrdered())
 
+    # Merge the the words and balance the none words if asked
     if prune_method == 1:
         r_words.extend(role_words)
         if balance:
@@ -85,7 +95,7 @@ def prune_from_predicates(predicates: List[TreeNode], no_role=False) -> List[Tre
     for w in predicates:
         while w:
             if not w in remaining_words:
-                if not no_role:
+                if not no_role and not w in predicates:
                     remaining_words.add(w)
                 elif w.getRole() == "None":
                     remaining_words.add(w)
@@ -137,6 +147,8 @@ def filter_data(frames: List[Frame], filter: dict):
 def filter_sentences(frames: List[Frame], filter: dict):
     role_occurance = {}
     no_filtered_sentences = 0
+
+    # Count the frames
     for frame in frames:
         sentences = frame.getSentences()
         # prune sentences depending on role occurance
@@ -148,16 +160,16 @@ def filter_sentences(frames: List[Frame], filter: dict):
                     role_occurance[role] += 1
                 else:
                     role_occurance[role] = 1
+    # Filter sentences if they contain a role less than min_role_occurance
     if filter.__contains__("min_role_occurance"):
-        for frame in frames:
-            sentences = frame.getSentences()
-            for sentence in sentences:
-                fes = sentence.getFrameElements()
-                for fe in fes:
-                    role = fe.getName()
-                    if role_occurance[role] < filter["min_role_occurance"]:
-                        frame.removeSentence(sentence)
-                        no_filtered_sentences += 1
+        min_role_occurance = filter["min_role_occure"]
+        decreased_role_occurance = True
+        while decreased_role_occurance:
+            decreased_role_occurance = False
+            for frame in frames:
+                decreased_role_occurance = filter_min_role(
+                    frame, role_occurance, min_role_occurance)
+    # Filter sentences if they contain a role greater than max_role_occurance
     if filter.__contains__("max_role_occurance"):
         for frame in frames:
             sentences = frame.getSentences()
@@ -168,6 +180,29 @@ def filter_sentences(frames: List[Frame], filter: dict):
                         frame.removeSentence(sentence)
                         no_filtered_sentences += 1
     return (frames, no_filtered_sentences)
+
+
+def filter_min_role(frame: Frame, role_occurance: dict, min_role_occurance: int):
+    sentences = frame.getSentences()
+    decreased_role_occurance = False
+    for sentence in sentences:
+        if check_min_role_sentence(sentence, role_occurance, min_role_occurance):
+            fes = sentence.getFrameElements()
+            frame.removeSentence(sentence)
+            for fe in fes:
+                if role_occurance.__contains__(fe.getName()):
+                    role_occurance[fe.getName()] -= 1
+                    decreased_role_occurance = True
+    return decreased_role_occurance
+
+
+def check_min_role_sentence(sentence: Sentence, role_occurance, min_role_occurance):
+    fes = sentence.getFrameElements()
+    role_names = [fe.getName() for fe in fes]
+    for role_name in role_names:
+        if role_occurance[role_name] < min_role_occurance:
+            return True
+    return False
 
 
 def filter_frames(frames: List[Frame], filter: dict):
