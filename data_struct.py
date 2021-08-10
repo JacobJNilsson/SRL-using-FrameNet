@@ -18,7 +18,7 @@ class TreeNode(object):
         ref: int = -1,  # The place of the word in the sentence
         frame: Frame = None,
         role: str = "None",
-        lus: List[TreeNode] = None,
+        lus: List[TreeNode] = [],
         prediction: str = "None",
         features=[],
     ):

@@ -377,7 +377,7 @@ def main():
     directory = f"runs/run{dt_string}"
     readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
     data_description = (
-        f"Testing good guess, without parser features (dependency features). linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+        f"Testing good guess, all features. \nlinearSVC. \n{features=}. \n{filter=}. \n{pruning_test_data=}. \nTime: {readable_time}\n"
     )
 
     if log_data:
