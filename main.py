@@ -82,7 +82,7 @@ def pipeline(
     print(no_sentences)
     print(no_data_points_features)
 
-    filter = filter.copy()
+    filter = filter_.copy()
 
     # Train models
     id_clf, label_clf, report_training = train_models_2(
@@ -341,11 +341,15 @@ def main():
         "pos",
         "deprel",
         "ref",
+        "lu_words",
+        "lu_lemmas",
+        "lu_deprels"
+        "lu_pos",
         "head_word",
         "head_lemma",
         "head_deprel"
         "head_pos",
-        "child_word",
+        "child_words",
         "child_lemmas",
         "child_deprels",
         "child_pos",
@@ -373,7 +377,7 @@ def main():
     directory = f"runs/run{dt_string}"
     readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
     data_description = (
-        f"Testing good guess, all features. linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
+        f"Testing good guess, without parser features (dependency features). linearSVC. {features=}. {filter=}. {pruning_test_data=}. Time: {readable_time}\n"
     )
 
     if log_data:

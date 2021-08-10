@@ -275,8 +275,13 @@ def create_feature_data(words: List[TreeNode], features):
     X_data = []
     for word in words:
         w = {}
+        lus = word.getLUs()
         head = word.getParent()
         children = word.getSubtrees()
+        if "frame" in features:
+            w["frame"] = word.getFrame().getName()
+        if "core_elements" in features:
+            w["core_elements"] = word.getFrame().getCoreElements()
         if "word" in features:
             w["word"] = word.getWord()
         if "lemma" in features:
@@ -287,10 +292,26 @@ def create_feature_data(words: List[TreeNode], features):
             w["deprel"] = word.getDeprel()
         if "ref" in features:
             w["ref"] = word.getRef()
-        if "frame" in features:
-            w["frame"] = word.getFrame().getName()
-        if "core_elements" in features:
-            w["core_elements"] = word.getFrame().getCoreElements()
+        if "lu_words" in features:
+            lu_words = []
+            for lu in lus:
+                lu_words.extend(lu.getWord())
+            w["lu_words"] = lu_words
+        if "lu_lemmas" in features:
+            lu_lemmas = []
+            for lu in lus:
+                lu_lemmas.extend(lu.getLemma())
+            w["lu_lemmas"] = lu_lemmas
+        if "lu_deprels" in features:
+            lu_deprels = []
+            for lu in lus:
+                lu_deprels.append(lu.getDeprel())
+            w["lu_deprels"] = lu_deprels
+        if "lu_pos" in features:
+            lu_pos = []
+            for lu in lus:
+                lu_pos.append(lu.getPos())
+            w["lu_pos"] = lu_pos
         if "head_word" in features:
             if head != None:
                 head_word = head.getWord()
@@ -303,7 +324,9 @@ def create_feature_data(words: List[TreeNode], features):
             else:
                 head_lemma = "None"
             w["head_lemma"] = head_lemma
-        if "head_pos" in features:
+        if "head_deprel" in features:
+            w["head_deprel"] = head.getDeprel()
+        if "head_ pos" in features:
             if head != None:
                 head_pos = head.getPos()
             else:
@@ -330,6 +353,7 @@ def create_feature_data(words: List[TreeNode], features):
                 child_pos.append(child.getPos())
             w["child_pos"] = child_pos
         X_data.append(w)
+
     # The dtype is set to np.bool_ since all features are 1 or 0
     # This should change if the child features started counting occurances.
     vec = DictVectorizer(dtype=np.bool_)

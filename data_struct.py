@@ -13,11 +13,12 @@ class TreeNode(object):
         pos: str,  # Word role
         deprel: str,  # Relationship with parent
         dephead: int = None,  # Parent position
-        parent=None,  # Parent node
-        subtrees: list = [],
+        parent: TreeNode = None,  # Parent node
+        subtrees: List[TreeNode] = [],  # Child nodes
         ref: int = -1,  # The place of the word in the sentence
         frame: Frame = None,
         role: str = "None",
+        lus: List[TreeNode] = None,
         prediction: str = "None",
         features=[],
     ):
@@ -31,6 +32,7 @@ class TreeNode(object):
         self.ref = ref
         self.frame = frame
         self.role = role
+        self.lus = lus
         self.prediction = prediction
         self.features = features
 
@@ -61,6 +63,9 @@ class TreeNode(object):
 
     def addRole(self, role):
         self.role = role
+
+    def addLU(self, lu):
+        self.lus.append(lu)
 
     def addPrediction(self, prediction):
         self.prediction = prediction
@@ -130,6 +135,9 @@ class TreeNode(object):
 
     def getRole(self):
         return self.role
+
+    def getLUs(self):
+        return self.lus
 
     def getPrediction(self):
         return self.prediction
@@ -260,7 +268,11 @@ class Sentence(object):
         fe_name = frameElement.getName()
         if len(self.tree_nodes_ordered) > fe_range[1]:
             for i in range(fe_range[0], fe_range[1] + 1):
-                self.tree_nodes_ordered[i].addRole(fe_name)
+                tree_node = self.tree_nodes_ordered[i]
+                tree_node.addRole(fe_name)
+                if fe_name == "LU":
+                    for word in self.tree_nodes_ordered:
+                        word.addLU(tree_node)
 
     def addArguments(self, arguments: List[TreeNode]):
         self.arguments = self.arguments + arguments
