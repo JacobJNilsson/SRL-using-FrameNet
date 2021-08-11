@@ -320,7 +320,7 @@ def train_classifier(
         report = f"Report of the y_data distribution\nThe different classes occurances: {occurance_class}\n{ratio_string}"
     else:
         report = f"Report of the y_data distribution\nThe most occuring class: {max_class} {occurance_class[max_class]}\n{ratio_string}"
-
+    print(report)
     # Create a classifier: a support vector classifier
     clf = svm.LinearSVC(
         C=c,

@@ -160,6 +160,7 @@ def filter_sentences(frames: List[Frame], filter: dict):
                     role_occurance[role] += 1
                 else:
                     role_occurance[role] = 1
+
     # Filter sentences if they contain a role less than min_role_occurance
     if filter.__contains__("min_role_occurance"):
         min_role_occurance = filter["min_role_occurance"]
@@ -169,6 +170,7 @@ def filter_sentences(frames: List[Frame], filter: dict):
             for frame in frames:
                 decreased_role_occurance = filter_min_role(
                     frame, role_occurance, min_role_occurance)
+
     # Filter sentences if they contain a role greater than max_role_occurance
     if filter.__contains__("max_role_occurance"):
         for frame in frames:

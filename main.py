@@ -61,10 +61,11 @@ def pipeline(
 
     # Filter frames
     (frames, no_filtered_frames_sentences) = filter_data(frames, filter)
-
+    print(f"Filtered data")
     # Add feature representation of each word to each word node
     (no_data_points_features) = create_feature_representation(
         frames, extract_features)
+    print(f"Feature representation created")
 
     no_frames = f"Number of frames: {len(frames)}"
     print(no_frames)
@@ -115,7 +116,7 @@ def pipeline(
                      f"{directory}/{parser_name}_label_evaluation.txt")
         save_to_file(f"{evaluation}",
                      f"{directory}/{parser_name}_evaluation.txt")
-        save_to_file(f"{no_frames}\n{no_sentences}\n{no_data_points_features}\n{no_filtered_frames_sentences}\n{report_training}",
+        save_to_file(f"{no_frames}\n{no_sentences}\n{no_data_points_features}\n{report_training}",
                      f"{directory}/run_description.txt")
 
     return evaluation
@@ -333,7 +334,7 @@ def main():
     filter = {"min_sentences": 0, "min_role_occurance": 6,
               "prune": 1}
     # Features of data to use
-    features = {
+    features_ = {
         "frame",
         "core_elements",
         "word",
@@ -369,40 +370,41 @@ def main():
             quit()
 
     ######## RUNS ########
-    # for feature in features_:
-    #     features = {feature}
-    # Change this string to represent the data manipulation made
-    now = datetime.now()
-    dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
-    directory = f"runs/run{dt_string}"
-    readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
-    data_description = (
-        f"Testing good guess, all features. \nlinearSVC. \n{features=}. \n{filter=}. \n{pruning_test_data=}. \nTime: {readable_time}\n"
-    )
+    for feature in features_:
+        features = {feature}
+        # Change this string to represent the data manipulation made
+        now = datetime.now()
+        dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
+        directory = f"runs/run{dt_string}"
+        readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
 
-    if log_data:
-        # Create new run folder
-        try:
-            os.mkdir(directory)
-        except:
-            raise OSError(f"Unable to create directory {directory}")
+        # Description of run
+        data_description = (
+            f"Testing good guess, one feature at a time. \nlinearSVC. \n{features=}. \n{filter=}. \n{pruning_test_data=}. \nTime: {readable_time}\n"
+        )
 
-    # Description of run
-    f = open(directory + "/run_description.txt", "a")
-    f.write(data_description)
-    f.close()
+        if log_data:
+            # Create new run folder
+            try:
+                os.mkdir(directory)
+            except:
+                raise OSError(f"Unable to create directory {directory}")
 
-    send_email(
-        directory,
-        f"New run started: \n{data_description}\n",
-        email_address,
-        send_mail,
-    )
+        f = open(directory + "/run_description.txt", "a")
+        f.write(data_description)
+        f.close()
 
-    run_malt(data_description, directory, features, filter,
-             prune_test_data=pruning_test_data)
-    run_spacy(data_description, directory, features, filter,
-              prune_test_data=pruning_test_data)
+        send_email(
+            directory,
+            f"New run started: \n{data_description}\n",
+            email_address,
+            send_mail,
+        )
+
+        run_malt(data_description, directory, features, filter,
+                 prune_test_data=pruning_test_data)
+        run_spacy(data_description, directory, features, filter,
+                  prune_test_data=pruning_test_data)
 
     send_email("Finished runs", "Tests compleate :)",
                email_address, send_mail)
