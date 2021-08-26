@@ -1,3 +1,4 @@
+import os
 import pickle
 import time
 
@@ -25,11 +26,13 @@ def timestamp(start: float, messege: str) -> float:
 
 
 def save_model(clf, name, directory) -> None:
+    assert os.path.isdir(directory)
     with open(directory + "/" + name + ".pkl", "wb") as fid:
         pickle.dump(clf, fid)
 
 
 def open_model(name, directory):
+    assert os.path.isdir(directory)
     with open(directory + "/" + name + ".pkl", "rb") as fid:
         return pickle.load(fid)
 

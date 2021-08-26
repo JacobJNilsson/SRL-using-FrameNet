@@ -65,7 +65,7 @@ class TreeNode(object):
         self.role = role
 
     def addLU(self, lu):
-        self.lus.append(lu)
+        self.lus = self.lus + [lu]
 
     def addPrediction(self, prediction):
         self.prediction = prediction
@@ -132,6 +132,9 @@ class TreeNode(object):
 
     def getFrame(self):
         return self.frame
+
+    def getFrameRoles(self):
+        return self.frame.getCoreElements() + self.frame.getPeripheralElements()
 
     def getRole(self):
         return self.role
@@ -266,13 +269,13 @@ class Sentence(object):
         self.frameElements = self.frameElements + [frameElement]
         fe_range = frameElement.getRange()
         fe_name = frameElement.getName()
-        if len(self.tree_nodes_ordered) > fe_range[1]:
-            for i in range(fe_range[0], fe_range[1] + 1):
-                tree_node = self.tree_nodes_ordered[i]
-                tree_node.addRole(fe_name)
-                if fe_name == "LU":
-                    for word in self.tree_nodes_ordered:
-                        word.addLU(tree_node)
+        assert len(self.tree_nodes_ordered) > fe_range[1]
+        for i in range(fe_range[0], fe_range[1] + 1):
+            tree_node = self.tree_nodes_ordered[i]
+            tree_node.addRole(fe_name)
+            if fe_name == "LU":
+                for word in self.tree_nodes_ordered:
+                    word.addLU(tree_node)
 
     def addArguments(self, arguments: List[TreeNode]):
         self.arguments = self.arguments + arguments

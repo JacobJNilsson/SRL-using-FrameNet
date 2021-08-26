@@ -2,8 +2,12 @@
 # from typing import List
 from datetime import datetime
 import os
+import copy
+import gc
 from typing import List
 from pandas.core import frame
+import time
+import numpy as np
 
 from spacy.util import load_model
 from data_parser import (
@@ -37,8 +41,6 @@ from training import (
     test_ident,
     cross_val,
 )
-import time
-import numpy as np
 from helpers import save_to_file, timestamp, save_model, open_model, chunks
 from message import send_email
 
@@ -54,7 +56,7 @@ def pipeline(
     prune_test_data=True,
     log_data=False
 ):
-    filter = filter_.copy()
+    filter = copy.deepcopy(filter_)
     # Prune sentences without an LU from the frames
     # TODO: log no. sentences pruned
     filter_faulty_sentences(frames)
@@ -73,7 +75,7 @@ def pipeline(
     # Split data into training and test sets
     (train_sentences, test_sentences) = split_data_train_test(frames)
 
-    # # For testing purpose
+    # # For testing purpose adding all sentences to training and testing
     # sentences = []
     # for frame in frames:
     #     sentences.extend(frame.getSentences())
@@ -83,8 +85,7 @@ def pipeline(
     print(no_sentences)
     print(no_data_points_features)
 
-    filter = filter_.copy()
-
+    filter = copy.deepcopy(filter_)
     # Train models
     id_clf, label_clf, report_training = train_models_2(
         train_sentences, filter)
@@ -104,6 +105,7 @@ def pipeline(
         save_model(
             label_clf, f"{parser_name}_labeling_model", f"{model_path}")
 
+    filter = copy.deepcopy(filter_)
     # Test models
     (id_evaluation, label_evaluation, evaluation) = test_models_2(
         id_clf, label_clf, test_sentences, filter, prune_test_data=prune_test_data)
@@ -119,8 +121,74 @@ def pipeline(
         save_to_file(f"{no_frames}\n{no_sentences}\n{no_data_points_features}\n{report_training}",
                      f"{directory}/run_description.txt")
 
+    # Release memory using garbage collection
+    del id_clf
+    del label_clf
+    gc.collect()
     return evaluation
 
+
+def pipeline_2(
+    directory: str,
+    frames: List[Frame],
+    parser_name: str,
+    extract_features: set,
+    filter_: dict,
+    prune_test_data=True,
+    log_data=False
+):
+
+    filter = copy.deepcopy(filter_)
+
+    # Prune sentences without an LU from the frames
+    filter_faulty_sentences(frames)
+
+    # Filter frames
+    (frames, no_filtered_frames_sentences) = filter_data(frames, filter)
+    print(f"Filtered data")
+
+    # Add feature representation of each word to each word node
+    (no_data_points_features) = create_feature_representation(
+        frames, extract_features)
+    print(f"Feature representation created")
+
+    no_frames = f"Number of frames: {len(frames)}"
+    print(no_frames)
+
+    # Split data into training and test sets
+    (train_sentences, test_sentences) = split_data_train_test(frames)
+
+    no_sentences = f"Number of sentences: {len(train_sentences) + len(test_sentences)}"
+    print(no_sentences)
+    print(no_data_points_features)
+
+    id_clf = open_model(
+        f"{parser_name}_identification_model", f"{directory}/models")
+    label_clf = open_model(
+        f"{parser_name}_labeling_model", f"{directory}/models")
+
+    filter = copy.deepcopy(filter_)
+
+    # Test models
+    (id_evaluation, label_evaluation, evaluation) = test_models_2(
+        id_clf, label_clf, test_sentences, filter, prune_test_data=prune_test_data)
+    print(f"Models tested")
+    if log_data:
+        # Save evaluation
+        save_to_file(
+            id_evaluation, f"{directory}/{parser_name}_id_evaluation.txt")
+        save_to_file(label_evaluation,
+                     f"{directory}/{parser_name}_label_evaluation.txt")
+        save_to_file(f"{evaluation}",
+                     f"{directory}/{parser_name}_evaluation.txt")
+        save_to_file(f"\n{no_frames}\n{no_sentences}\n{no_data_points_features}",
+                     f"{directory}/run_description.txt")
+
+    # Release memory using garbage collection
+    del id_clf
+    del label_clf
+    gc.collect()
+    return evaluation
 ############ Training ############
 
 
@@ -300,9 +368,7 @@ def run_spacy(
 
     # Parse data
     spacy_frames: List[Frame] = open_model("spacy_parse", ".")
-    sentences = []
-    for frame in spacy_frames:
-        sentences.extend(frame.getSentences())
+
     send_email(
         directory,
         f"Starting pipeline for data parsed with spaCy",
@@ -335,6 +401,7 @@ def main():
               "prune": 1}
     # Features of data to use
     features_ = {
+        "",
         "frame",
         "core_elements",
         "word",
@@ -342,18 +409,18 @@ def main():
         "pos",
         "deprel",
         "ref",
-        "lu_words",
+        # "lu_words",
         "lu_lemmas",
-        "lu_deprels"
+        "lu_deprels",
         "lu_pos",
         "head_word",
         "head_lemma",
-        "head_deprel"
+        "head_deprel",
         "head_pos",
         "child_words",
         "child_lemmas",
         "child_deprels",
-        "child_pos",
+        # "child_pos",
     }
 
     if not os.path.isfile('spacy_parse.pkl'):
@@ -371,7 +438,8 @@ def main():
 
     ######## RUNS ########
     for feature in features_:
-        features = {feature}
+        features = features_.copy()
+        features.remove(feature)
         # Change this string to represent the data manipulation made
         now = datetime.now()
         dt_string = now.strftime("_%Y-%m-%d_%H-%M-%S")
@@ -380,7 +448,7 @@ def main():
 
         # Description of run
         data_description = (
-            f"Testing good guess, one feature at a time. \nlinearSVC. \n{features=}. \n{filter=}. \n{pruning_test_data=}. \nTime: {readable_time}\n"
+            f"Testing good guess, All features except: lu_words, child_pos, {feature}. \nlinearSVC. \n{features=}. \n{filter=}. \n{pruning_test_data=}. \nTime: {readable_time}\n"
         )
 
         if log_data:
@@ -412,6 +480,87 @@ def main():
     quit()
 
 
+def main_trained_models():
+    # If the data should be pruned as a part of the evaluation
+    prune_test_data = True
+    # Filter the data used in both training and testing
+    filter = {"min_sentences": 0, "min_role_occurance": 6,
+              "prune": 1}
+    if not os.path.isfile('spacy_parse.pkl'):
+        try:
+            print(f"Parsing spaCy frames")
+            frames = parse_spacy()
+            save_model(frames, "spacy_parse", ".")
+            send_email("Parsing spaCy", f"Finished parsing spaCy and saved to model",
+                       email_address,
+                       send_mail)
+        except Exception as err:
+            send_email("Parsing spaCy", f"Error when parsing spaCy\n{str(err)}",
+                       email_address,
+                       send_mail)
+            quit()
+
+    # Parse data
+    spacy_frames: List[Frame] = open_model("spacy_parse", ".")
+    malt_frames: List[Frame] = parse_malt()
+
+    #### runs ####
+    for x in os.walk("runs/tmp/"):
+        for folder in x[1]:
+            directory = x[0] + folder
+            assert os.path.isdir(directory)
+            features = {folder[4:]}
+            now = datetime.now()
+            readable_time = now.strftime("%H:%M:%S %Y-%m-%d")
+
+            # Description of run
+            data_description = (
+                f"Testing good guess, one feature at a time. \nlinearSVC. \n{features=}. \n{filter=}. \n{prune_test_data=}. \nTime: {readable_time}\n"
+            )
+
+            f = open(directory + "/run_description.txt", "w")
+            f.write(data_description)
+            f.close()
+
+            send_email(
+                directory,
+                f"New run started: \n{data_description}\n",
+                email_address,
+                send_mail,
+            )
+
+            pipeline_2(
+                directory,
+                malt_frames,
+                "malt",
+                features,
+                filter,
+                prune_test_data,
+                log_data
+            )
+            send_email(
+                directory,
+                f"Pipeline for data parsed with Maltparser compleate.",
+                email_address,
+                send_mail,
+            )
+            pipeline_2(
+                directory,
+                spacy_frames,
+                "spacy",
+                features,
+                filter,
+                prune_test_data,
+                log_data
+            )
+            send_email(
+                directory,
+                f"Pipeline for data parsed with spaCy compleate.",
+                email_address,
+                send_mail,
+            )
+
+
 # set these for outputs
 send_mail = True
 email_address = "jacobjnilsson@gmail.com"
@@ -421,4 +570,4 @@ if __name__ == "__main__":
     main()
 
 
-# the ratio when training must be balanced
+# the ratio when training must be somewhat balanced

@@ -245,16 +245,32 @@ def cross_val(
     return clf
 
 
-def calc_predictions(classes, probabilities) -> List[str]:
+def calc_predictions(classes, probabilities, words: List[TreeNode]) -> List[str]:
     r = []
-    for p in probabilities:
-        best_guess_value = 0
+    correct_answers_not_in_training_set = 0
+    for p, word in zip(probabilities, words):
+        best_guess_value = 0.0
         best_guess = None
+        second_best_guess_value = 0.0
+        second_best_guess = None
+        accepted_roles = word.getFrameRoles()
         for c, probability in zip(classes, p):
-            if probability > best_guess_value:
-                best_guess = c
-                best_guess_value = probability
+            if c in accepted_roles:
+                if probability >= best_guess_value:
+                    best_guess = c
+                    best_guess_value = probability
+            else:
+                if probability >= best_guess_value:
+                    second_best_guess = c
+                    second_best_guess_value = probability
+
+        if best_guess == None:
+            correct_answers_not_in_training_set += 1
+            best_guess = second_best_guess
+
+        assert best_guess != None
         r.append(best_guess)
+    print(f"{correct_answers_not_in_training_set=}")
     return r
 
 
@@ -357,7 +373,7 @@ def test_classifier(
         # print(f"testing labeler with {len(X_data)} datapoints")
         probabilities = clf.predict_proba(X_data)
         # !Probably something wrong here!
-        predictions = calc_predictions(clf.classes_, probabilities)
+        predictions = calc_predictions(clf.classes_, probabilities, words)
 
     # Add the prediction to the word objects
     for word, prediction in zip(words, predictions):

@@ -116,6 +116,8 @@ def split_data_train_test(
         all_sentences.extend(sentences)
     random.Random(1).shuffle(all_sentences)
     split = int(len(all_sentences) * train_ratio)
+    # TODO Make sure there is no instance of a test sentence that contain roles not included in the training set
+
     train_sentences = all_sentences[:split]
     test_sentences = all_sentences[split:]
     return (train_sentences, test_sentences)
@@ -276,6 +278,7 @@ def create_feature_data(words: List[TreeNode], features):
     for word in words:
         w = {}
         lus = word.getLUs()
+        # print(f"{[lu.getWord() for lu in lus]}\n")
         head = word.getParent()
         children = word.getSubtrees()
         if "frame" in features:
@@ -325,8 +328,12 @@ def create_feature_data(words: List[TreeNode], features):
                 head_lemma = "None"
             w["head_lemma"] = head_lemma
         if "head_deprel" in features:
-            w["head_deprel"] = head.getDeprel()
-        if "head_ pos" in features:
+            if head != None:
+                head_deprel = head.getDeprel()
+            else:
+                head_deprel = None
+            w["head_deprel"] = head_deprel
+        if "head_pos" in features:
             if head != None:
                 head_pos = head.getPos()
             else:

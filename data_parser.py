@@ -354,7 +354,7 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                 dephead = None
                 if not token.head == token:
                     dephead = token.head.i + 1
-                lemma = token.lemma_
+                lemma = [token.lemma_]
 
                 word_node = TreeNode(
                     word=token.text,
@@ -372,7 +372,6 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                     root = word_node
                 no_treenodes += 1
                 sentence_list.append(token.text)
-
             # something is wrong, throw an exception
             if not no_words == no_treenodes:
                 message = f"Sentence \"{sentence_text}\" is badly formed\nTokenized sentence: {sentence_list}\nNumber of sentences parsed successfully: {no_parsed_sentences}"
@@ -408,9 +407,8 @@ def parse_spacy(datafile="swefn-ex.xml") -> List[Frame]:
                         start, end = i, i
                     else:
                         end = int(word.get("ref")) - 1
-                if not start == None:
+                if start != None:
                     sentence.addFrameElement(FrameElement(name, (start, end)))
-
         frames.append(frame)
     return frames
 

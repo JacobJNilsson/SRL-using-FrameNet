@@ -39,8 +39,8 @@ def prune_sentences(sentences: List[Sentence], filter: dict, balance: bool = Fal
                 fes = sentence.getFrameElements()
                 lus = []
                 for fe in fes:
+                    words_with_role = sentence.getNodesInFrameElement(fe)
                     if fe.getName() != "LU":
-                        words_with_role = sentence.getNodesInFrameElement(fe)
                         for role_word in words_with_role:
                             roles.add(role_word.getRole())
                         role_words.extend(words_with_role)
