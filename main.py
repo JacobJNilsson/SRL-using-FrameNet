@@ -397,7 +397,7 @@ def main():
     # If the data should be pruned as a part of the evaluation
     pruning_test_data = True
     # Filter the data used in both training and testing
-    filter = {"min_sentences": 0, "min_role_occurance": 6,
+    filter = {"min_sentences": 0, "min_role_occurrence": 6,
               "prune": 1}
     # Features of data to use
     features_ = {
@@ -455,12 +455,11 @@ def main():
             # Create new run folder
             try:
                 os.mkdir(directory)
+                f = open(directory + "/run_description.txt", "a")
+                f.write(data_description)
+                f.close()
             except:
                 raise OSError(f"Unable to create directory {directory}")
-
-        f = open(directory + "/run_description.txt", "a")
-        f.write(data_description)
-        f.close()
 
         send_email(
             directory,
@@ -484,7 +483,7 @@ def main_trained_models():
     # If the data should be pruned as a part of the evaluation
     prune_test_data = True
     # Filter the data used in both training and testing
-    filter = {"min_sentences": 0, "min_role_occurance": 6,
+    filter = {"min_sentences": 0, "min_role_occurrence": 6,
               "prune": 1}
     if not os.path.isfile('spacy_parse.pkl'):
         try:

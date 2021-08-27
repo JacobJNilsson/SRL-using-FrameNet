@@ -175,7 +175,7 @@ def split_data_to_classification_subsets(
 
     # Filter data
     filter_list = []
-    f = open("class_occurance.txt", "r", encoding="utf8")
+    f = open("class_occurrence.txt", "r", encoding="utf8")
     first_line = f.readline()
     classes = ast.literal_eval(first_line)
     for key in classes:
@@ -204,7 +204,7 @@ def split_data_to_classification_subsets(
     # now = datetime.now()
     # dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
     # classes = {i: y.count(i) for i in y}
-    # f = open("class_occurance.txt", "a", encoding="utf8")
+    # f = open("class_occurrence.txt", "a", encoding="utf8")
     # f.write(dt_string + ":\n")
     # f.write(description + "\n")
     # f.write(str(classes) + "\n\n")

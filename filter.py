@@ -70,8 +70,8 @@ def prune_sentences(sentences: List[Sentence], filter: dict, balance: bool = Fal
     if prune_method == 1:
         r_words.extend(role_words)
         if balance:
-            avg_role_occurance = len(role_words)/len(roles)
-            for i in range(0, len(none_role_words) - 1, int(len(none_role_words)/(avg_role_occurance*100))):
+            avg_role_occurrence = len(role_words)/len(roles)
+            for i in range(0, len(none_role_words) - 1, int(len(none_role_words)/(avg_role_occurrence*100))):
                 r_words.append(none_role_words[i])
         else:
             r_words.extend(none_role_words)
@@ -145,7 +145,7 @@ def filter_data(frames: List[Frame], filter: dict):
 
 
 def filter_sentences(frames: List[Frame], filter: dict):
-    role_occurance = {}
+    role_occurrence = {}
     no_filtered_sentences = 0
 
     # Count the frames
@@ -156,53 +156,53 @@ def filter_sentences(frames: List[Frame], filter: dict):
             fes = sentence.getFrameElements()
             for fe in fes:
                 role = fe.getName()
-                if role in role_occurance.keys():
-                    role_occurance[role] += 1
+                if role in role_occurrence.keys():
+                    role_occurrence[role] += 1
                 else:
-                    role_occurance[role] = 1
+                    role_occurrence[role] = 1
 
-    # Filter sentences if they contain a role less than min_role_occurance
-    if filter.__contains__("min_role_occurance"):
-        min_role_occurance = filter["min_role_occurance"]
-        decreased_role_occurance = True
-        while decreased_role_occurance:
-            decreased_role_occurance = False
+    # Filter sentences if they contain a role less than min_role_occurrence
+    if filter.__contains__("min_role_occurrence"):
+        min_role_occurrence = filter["min_role_occurrence"]
+        decreased_role_occurrence = True
+        while decreased_role_occurrence:
+            decreased_role_occurrence = False
             for frame in frames:
-                decreased_role_occurance = filter_min_role(
-                    frame, role_occurance, min_role_occurance)
+                decreased_role_occurrence = filter_min_role(
+                    frame, role_occurrence, min_role_occurrence)
 
-    # Filter sentences if they contain a role greater than max_role_occurance
-    if filter.__contains__("max_role_occurance"):
+    # Filter sentences if they contain a role greater than max_role_occurrence
+    if filter.__contains__("max_role_occurrence"):
         for frame in frames:
             sentences = frame.getSentences()
             for sentence in sentences:
                 fes = sentence.getFrameElements()
                 for fe in fes:
-                    if role_occurance[fe.getName()] > filter["max_role_occurance"]:
+                    if role_occurrence[fe.getName()] > filter["max_role_occurrence"]:
                         frame.removeSentence(sentence)
                         no_filtered_sentences += 1
     return (frames, no_filtered_sentences)
 
 
-def filter_min_role(frame: Frame, role_occurance: dict, min_role_occurance: int):
+def filter_min_role(frame: Frame, role_occurrence: dict, min_role_occurrence: int):
     sentences = frame.getSentences()
-    decreased_role_occurance = False
+    decreased_role_occurrence = False
     for sentence in sentences:
-        if check_min_role_sentence(sentence, role_occurance, min_role_occurance):
+        if check_min_role_sentence(sentence, role_occurrence, min_role_occurrence):
             fes = sentence.getFrameElements()
             frame.removeSentence(sentence)
             for fe in fes:
-                if role_occurance.__contains__(fe.getName()):
-                    role_occurance[fe.getName()] -= 1
-                    decreased_role_occurance = True
-    return decreased_role_occurance
+                if role_occurrence.__contains__(fe.getName()):
+                    role_occurrence[fe.getName()] -= 1
+                    decreased_role_occurrence = True
+    return decreased_role_occurrence
 
 
-def check_min_role_sentence(sentence: Sentence, role_occurance, min_role_occurance):
+def check_min_role_sentence(sentence: Sentence, role_occurrence, min_role_occurrence):
     fes = sentence.getFrameElements()
     role_names = [fe.getName() for fe in fes]
     for role_name in role_names:
-        if role_occurance[role_name] < min_role_occurance:
+        if role_occurrence[role_name] < min_role_occurrence:
             return True
     return False
 
