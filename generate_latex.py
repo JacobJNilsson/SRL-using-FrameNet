@@ -37,7 +37,10 @@ def main():
     assert os.path.exists(rootdir), f"This is not an existing path: {rootdir}"
     for subdir, dirs, files in os.walk(rootdir):
         descr_file = 'run_description.txt'
-        id_malt_file = 'malt_id_evaluation.txt'
+        malt_id_file = 'malt_id_evaluation.txt'
+        malt_label_file = 'malt_label_evaluation.txt'
+        spacy_id_file = 'spacy_id_evaluation.txt'
+        spacy_label_file = 'spacy_label_evaluation.txt'
         features = set()
         id_spacy_precision = ""
         id_spacy_recall = ""
@@ -51,22 +54,59 @@ def main():
         label_malt_precision = ""
         label_malt_recall = ""
         label_malt_f1 = ""
+        if descr_file in files and malt_id_file in files and malt_label_file in files and spacy_id_file in files and spacy_label_file in files:
+            df = open(os.path.join(subdir, descr_file), 'r')
+            first_line = df.readline().strip()
+            df.close()
 
-        if descr_file in files:
-            f = open(os.path.join(subdir, descr_file), 'r')
             # Different test groups
-            if f.readline().strip() == 'Testing good guess, one feature at a time.':
-                features = eval(f.readlines()[1].strip()[9:-1])
-                first_line = f"%%%% Only {next(iter(features))} %%%%"
-                save_to_file(first_line, file)
-                f.close()
-            f = open(os.path.join())
+            if 'Testing good guess, All features except' in first_line:
+                save_to_file(f'%%% {first_line} %%%\n', file)
 
-        if features:
-            save_to_file()
-        for file in files:
-            pass
-            # print(os.path.join(subdir, file))
+                malt_id_metrics = parse_metrics_from_file(
+                    os.path.join(subdir, malt_id_file))
+                malt_label_metrics = parse_metrics_from_file(
+                    os.path.join(subdir, malt_label_file))
+                spacy_id_metrics = parse_metrics_from_file(
+                    os.path.join(subdir, spacy_id_file))
+                spacy_label_metrics = parse_metrics_from_file(
+                    os.path.join(subdir, spacy_label_file))
+                latex_table_string = build_latex_table(first_line, malt_id_metrics, malt_label_metrics,
+                                                       spacy_id_metrics, spacy_label_metrics)
+
+                save_to_file(latex_table_string, file)
+
+
+def parse_metrics_from_file(filepath):
+    f = open(filepath, 'r')
+    for last_line in f:
+        pass
+    l = last_line.split()
+    metrics = {'precision': l[2], 'recall': l[3], 'f1': l[4]}
+    return (metrics)
+
+
+def build_latex_table(title, malt_id_metrics: dict, malt_label_metrics, spacy_id_metrics, spacy_label_metrics):
+    title = title.replace('_', '\_')
+    return f"\\begin{{center}}\n \
+\\begin{{table}}[H]\n \
+ \\caption{{{title}}}\n \
+ \\begin{{tabular}}{{| c || c c c | c c c |}}\n \
+ \\hline\n \
+ &\n \
+ \\multicolumn{{3}}{{c}}{{Maltparser}} &\n \
+ \\multicolumn{{3}}{{c|}}{{spaCy}} \\\\\n \
+ \\hline\n \
+ Stage & Precision & Recall & F1-score & Precision & Recall & F1-score \\\\ [0.5ex]\n \
+ \\hline\\hline\n \
+ Identification & {malt_id_metrics['precision']} & {malt_id_metrics['recall']} & {malt_id_metrics['f1']} & {spacy_id_metrics['precision']} & {spacy_id_metrics['recall']} & {spacy_id_metrics['f1']} \\\\\n \
+ \\hline\n \
+ Classification & {malt_label_metrics['precision']} & {malt_label_metrics['recall']} & {malt_label_metrics['f1']} & {spacy_label_metrics['precision']} & {spacy_label_metrics['recall']} & {spacy_label_metrics['f1']}\\\\\n \
+ \\hline\n \
+\\end{{tabular}}\n \
+\\end{{table}}\n \
+\\end{{center}}\n \
+\n"
 
 
 if __name__ == "__main__":
